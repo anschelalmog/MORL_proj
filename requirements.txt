@@ -12,7 +12,7 @@ contourpy==1.1.1
 cycler==0.12.1
 DataProperty==1.0.1
 docker-pycreds==0.4.0
--e git+https://github.com/matolevi/energy-net.git@23452cb430d3f5b0a8f04e98346c543c92bd8a94#egg=energy_net
+# -e git+https://github.com/matolevi/energy-net.git@23452cb430d3f5b0a8f04e98346c543c92bd8a94#egg=energy_net
 eval_type_backport==0.2.2
 Farama-Notifications==0.0.4
 filelock==3.16.1

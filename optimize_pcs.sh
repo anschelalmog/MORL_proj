@@ -7,8 +7,8 @@ set -e
 # Create output directories
 mkdir -p logs/optimize/pcs
 
-# Ensure environment is on PYTHONPATH
-export PYTHONPATH=$PYTHONPATH:$(pwd)
+
+export PYTHONPATH=$PYTHONPATH:$(pwd)/rl-baselines3-zoo
 
 # Set optimization parameters
 N_TRIALS=5
@@ -19,7 +19,7 @@ EVAL_EPISODES=48
 echo "Starting PCS agent optimization..."
 
 # Optimize PCS agent
-python -m rl_zoo3.train \
+python3 -m rl_zoo3.train \
   --algo ppo \
   --env PCS-RLZoo-v0 \
   --gym-packages energy_net.env.register_envs \
