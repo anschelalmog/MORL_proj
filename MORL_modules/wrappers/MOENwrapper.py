@@ -42,27 +42,42 @@ class MOEnergyNetWrapper(gym.Wrapper):
         self.current_grid_support_reward = 0
         self.current_autonomy_reward = 0
         self.steps = 0
-
+        self.pcsunit = None
+        self.battery =None
+        self.battery_manager = None
+        if hasattr(self.env.unwrapped, "controller") and hasattr(self.env.unwrapped.controller, "pcsunit"):
+            self.pcsunit = self.env.unwrapped.controller.pcsunit
+            self.battery = self.env.unwrapped.controller.pcsunit.battery
         # Store previous battery level for computing changes
+        if hasattr(self.env.unwrapped, "controller"):
+            self.battery_manager = self.env.unwrapped.controller.battery_manager
         self.prev_battery_level = None
+
 
     def reset(self, **kwargs):
         """Reset environment and metrics."""
         observation, info = self.env.reset(**kwargs)
 
+        #reset pscunit, battery and battery manager from the environment
+        if hasattr(self.env.unwrapped, "controller") and hasattr(self.env.unwrapped.controller, "pcsunit"):
+            self.pcsunit = self.env.unwrapped.controller.pcsunit
+            self.battery = self.env.unwrapped.controller.pcsunit.battery
+
+        if hasattr(self.env.unwrapped, "controller"):
+            self.battery_manager = self.env.unwrapped.controller.battery_manager
         # Reset episode metrics
         self.current_economic_reward = 0
         self.current_battery_health_reward = 0
         self.current_grid_support_reward = 0
         self.current_autonomy_reward = 0
         self.steps = 0
-
+        # Store previous battery level for computing changes
         # Get initial battery level
         if "battery_level" in info:
             self.prev_battery_level = info["battery_level"]
-        elif hasattr(self.env.unwrapped, "controller") and hasattr(self.env.unwrapped.controller, "pcsunit"):
-            # Try to get battery level from PCSUnit
-            self.prev_battery_level = self.env.unwrapped.controller.pcsunit.battery.get_state()
+        elif self.battery is not None:
+            # Try to get battery level from battery
+            self.prev_battery_level = self.battery.get_state()
         else:
             self.prev_battery_level = 50.0  # Default assumption
 
@@ -94,26 +109,34 @@ class MOEnergyNetWrapper(gym.Wrapper):
         # Get battery level
         if "battery_level" in info:
             battery_level = info["battery_level"]
-        elif hasattr(self.env.unwrapped, "controller") and hasattr(self.env.unwrapped.controller, "pcsunit"):
-            battery_level = self.env.unwrapped.controller.pcsunit.battery.get_state()
+        elif self.battery is not None:
+            battery_level = self.battery.get_state()
 
         # Get energy exchange info
         if "net_exchange" in info:
             net_exchange = info["net_exchange"]
-
         # Get production and consumption
-        if hasattr(self.env.unwrapped, "controller") and hasattr(self.env.unwrapped.controller, "pcsunit"):
-            pcsunit = self.env.unwrapped.controller.pcsunit
-            if hasattr(pcsunit, "get_self_production") and hasattr(pcsunit, "get_self_consumption"):
+        if self.pcsunit is not None:
+            if hasattr(self.pcsunit, "get_self_production") and hasattr(self.pcsunit, "get_self_consumption"):
                 production = pcsunit.get_self_production()
                 consumption = pcsunit.get_self_consumption()
 
         # 2. Battery health objective
+        battery_change = None
         if battery_level is not None and self.prev_battery_level is not None:
             # Penalize large state of charge changes (avoid cycling)
             battery_change = abs(battery_level - self.prev_battery_level)
+        elif  self.pcsunit is not None  and hasattr(self.pcsunit, "get_energy_change") and battery_level is not None:
+            battery_change = self.pcsunit.get_energy_change()
+
+
+
+        if battery_change  is not None and self.battery_manager is not None:
+
+
             # Reward being in middle range (30-70%) to avoid extremes
-            middle_range_factor = 1.0 - 2.0 * abs(battery_level - 50.0) / 100.0
+            middle_range_factor = (
+                    1.0 - 2.0 * abs(battery_level -(self.battery_manager.battery_max - self.battery_manager.battery_min)/2 ) / (self.battery_manager.battery_max - self.battery_manager.battery_min))
 
             battery_health_reward = 0.5 * middle_range_factor - 0.5 * (battery_change / 20.0)
             mo_rewards[1] = battery_health_reward
