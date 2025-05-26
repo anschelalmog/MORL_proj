@@ -1,30 +1,21 @@
 import pytest
 import torch as th
 import numpy as np
-from unittest.mock import MagicMock
-from scalarize_algorithm.mosac_scalarized import MOContinuousCritic, MOSACPolicy, MOReplayBuffer
-
-# Constants for test setup
-BATCH_SIZE = 4
-OBS_DIM = 3
-ACTION_DIM = 2
-REWARD_DIM = 2
-LATENT_DIM = 64
-GAMMA = 0.99
-
-# -----------------------------
-# Test MOContinuousCritic
-# -----------------------------
+from scalarize_algorithm.mosac_scalarized import MOContinuousCritic
+import gymnasium as gym
 
 def test_mo_continuous_critic_forward_shapes():
     obs_dim = 8
     action_dim = 3
     reward_dim = 2
     hidden_dim = 64
+    batch_size = 4
 
-    observation_space = gym.spaces.Box(low=-1, high=1, shape=(obs_dim,), dtype=th.float32)
-    action_space = gym.spaces.Box(low=-1, high=1, shape=(action_dim,), dtype=th.float32)
+    # Use numpy float32 dtype for Gym spaces
+    observation_space = gym.spaces.Box(low=-1, high=1, shape=(obs_dim,), dtype=np.float32)
+    action_space = gym.spaces.Box(low=-1, high=1, shape=(action_dim,), dtype=np.float32)
 
+    # Initialize critic with explicit features_dim since we have no extractor
     critic = MOContinuousCritic(
         observation_space=observation_space,
         action_space=action_space,
@@ -36,20 +27,22 @@ def test_mo_continuous_critic_forward_shapes():
         n_critics=2,
         activation_fn=th.nn.ReLU,
         normalize_images=False,
-        share_features_across_objectives=True
+        share_features_across_objectives=True,
+        #features_dim=obs_dim  # Explicitly pass feature dimension
     )
 
-    # Generate dummy inputs
-    obs = th.rand((4, obs_dim))
-    actions = th.rand((4, action_dim))
+    # Dummy input tensors
+    obs = th.rand((batch_size, obs_dim))
+    actions = th.rand((batch_size, action_dim))
 
-    # Test all critic Q-networks
+    # Check output shape of each Q-network
     for q_net in critic.q_networks:
         q_vals = q_net(obs, actions)
         assert isinstance(q_vals, list)
         assert len(q_vals) == reward_dim
         for q in q_vals:
-            assert q.shape == (4, 1)
+            assert q.shape == (batch_size, 1)
+
 # -----------------------------
 # Test MOSACPolicy
 # -----------------------------

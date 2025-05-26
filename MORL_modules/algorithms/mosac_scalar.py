@@ -3,7 +3,6 @@ import torch as th
 import torch.nn.functional as F
 from typing import Any, Dict, List, Optional, Tuple, Type, Union, Callable
 from gymnasium import spaces
-from stable_baselines3.common.buffers import ReplayBuffer
 
 from stable_baselines3.sac.policies import SACPolicy
 from stable_baselines3.sac.sac import SAC
@@ -11,8 +10,6 @@ from stable_baselines3.common.policies import ContinuousCritic
 from stable_baselines3.common.preprocessing import get_action_dim
 from stable_baselines3.common.torch_layers import create_mlp
 from stable_baselines3.common.type_aliases import GymEnv, Schedule, TensorDict
-import gymnasium as gym
-from stable_baselines3.common.torch_layers import FlattenExtractor
 
 def register_mosac():
     from rl_zoo3 import ALGOS
@@ -27,39 +24,27 @@ class MOContinuousCritic(ContinuousCritic):
     """
     def __init__(self, observation_space: spaces.Space, action_space: spaces.Space,
             net_arch: List[int],  num_objectives: int = 2,
-            features_extractor_class = FlattenExtractor, features_extractor_kwargs: Optional[Dict[str, Any]] = None,
+            features_extractor_class = None, features_extractor_kwargs: Optional[Dict[str, Any]] = None,
             share_features_extractor: bool = True, n_critics: int = 2,
             activation_fn: Type[th.nn.Module] = th.nn.ReLU, normalize_images: bool = True,
             share_features_across_objectives: bool = True):
 
-        # Manually create the features extractor since base class does not handle it
-        if features_extractor_class is None:
-            # Use default extractor (e.g., FlattenExtractor) if none is provided
-            from stable_baselines3.common.torch_layers import FlattenExtractor
-            features_extractor_class = FlattenExtractor
 
-        # Manually create the features extractor since base class does not handle it
-        features_extractor = features_extractor_class(observation_space, **( features_extractor_kwargs or {}))
-        super().__init__(
-            observation_space=observation_space,
-            action_space=action_space,
-            net_arch=net_arch,
-            activation_fn=activation_fn,
-            n_critics=n_critics,
-            features_extractor = features_extractor,
-            features_dim = features_extractor.features_dim
-
+        super(ContinuousCritic, self).__init__(
+            observation_space,
+            action_space,
+            features_extractor_class,
+            features_extractor_kwargs,
+            normalize_images=normalize_images,
         )
 
-        self.features_extractor = features_extractor
-        self.features_dim = self.features_extractor.features_dim
         self.num_objectives = num_objectives
         self.share_features_extractor = share_features_extractor
         self.share_features_across_objectives = share_features_across_objectives
         self.n_critics = n_critics
         self.q_networks = []
 
-        action_dim = action_space.shape[0]
+        action_dim = get_action_dim(self.action_space)
 
         # Create separate q-networks for each critic ensemble and each objective
         for i in range(self.n_critics):
@@ -134,7 +119,7 @@ class MOContinuousCritic(ContinuousCritic):
         Returns:
             List of lists: [critic_ensemble][objective] -> q_value tensor
         """
-        features =  self.features_extractor(obs)#self.extract_features(obs, self.features_extractor)
+        features = self.extract_features(obs, self.features_extractor)
 
         # Get Q-values from each critic ensemble
         q_values = []
@@ -256,7 +241,6 @@ class MOReplayBuffer(ReplayBuffer):
             action_space: spaces.Space,
             num_objectives: int = 4,
             device: Union[th.device, str] = "auto",
-            weights: Optional[np.ndarray] = None,
             n_envs: int = 1,
             optimize_memory_usage: bool = False,
             handle_timeout_termination: bool = True,
@@ -273,17 +257,10 @@ class MOReplayBuffer(ReplayBuffer):
         )
 
         self.num_objectives = num_objectives
-        if weights is None:
-            self.weights= np.ones(num_objectives, dtype=np.float32)
-        else:
-            self.weights = np.asarray(weights)
-        assert self.weights.shape[0] == self.num_objectives, \
-            f"Expected {self.num_objectives} weights, got {self.weights.shape[0]}"
+
         # Modify rewards buffer to store vectors instead of scalars
         # Shape becomes (buffer_size, n_envs, num_objectives)
-        #self.vector_rewards = np.zeros((self.buffer_size, self.n_envs, self.num_objectives), dtype=np.float32)
-        # 'self.rewards' (from base class) will store the scalarized reward
-        self.rewards = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
+        self.rewards = np.zeros((self.buffer_size, self.n_envs, self.num_objectives), dtype=np.float32)
 
     def add(
             self,
@@ -301,10 +278,9 @@ class MOReplayBuffer(ReplayBuffer):
 
         # Validate reward shape
         assert reward.shape[1] == self.num_objectives, f"Expected reward with {self.num_objectives} objectives, got {reward.shape[1]}"
-        # Compute scalar rewards
-        scalar_rewards = np.dot(reward, self.weights)
+
         # Call parent method but handle reward differently
-        super().add(obs, next_obs, action, scalar_rewards, done, infos)
+        super().add(obs, next_obs, action, reward, done, infos)
 
     def sample(self, batch_size: int, env: Optional[GymEnv] = None) -> TensorDict:
         """Sample a batch of transitions with vector rewards."""
@@ -383,8 +359,6 @@ class MOSAC(SAC):
         if replay_buffer_kwargs is None:
             replay_buffer_kwargs = {}
         replay_buffer_kwargs["num_objectives"] = num_objectives
-        # Ensure replay buffer kwargs contain preference_weights
-        replay_buffer_kwargs["weights"] = self.preference_weights
 
         # To track Pareto front during training
         self.pareto_front = []
@@ -436,12 +410,124 @@ class MOSAC(SAC):
         Train the model for gradient_steps with multi-objective rewards.
         Customizes training to handle vector rewards and multiple critics.
         """
-        #we stored scalar reward, so we can train like the father
-        super().train(gradient_steps, batch_size)
+        # Call parent's train to handle common setup
+        if self.should_collect_more_steps():
+            return
+
+        if gradient_steps <= 0:
+            return
+
+        # Update optimizers learning rate
+        self._update_learning_rate([self.actor.optimizer, self.critic.optimizer])
+
+        actor_losses, critic_losses, ent_coef_losses = [], [], []
+        for gradient_step in range(gradient_steps):
+            # Sample replay buffer
+            replay_data = self.replay_buffer.sample(batch_size)
+
+            # We need to sample because `log_std` may have changed between two gradient steps
+            if self.use_sde:
+                self.actor.reset_noise()
+
+            # Action by the current actor for the sampled states
+            actions_pi, log_prob = self.actor.action_log_prob(replay_data.observations)
+            log_prob = log_prob.reshape(-1, 1)
+
+            with th.no_grad():
+                # Sample actions according to current policy
+                next_actions, next_log_prob = self.actor.action_log_prob(replay_data.next_observations)
+                next_log_prob = next_log_prob.reshape(-1, 1)
+
+                # Compute multiple critics' Q-values
+                next_q_values_list = self.critic_target(replay_data.next_observations, next_actions)
+
+                # For each critic ensemble, compute the target Q-values for each objective
+                target_q_values = []
+                for critic_idx, next_q_values_per_critic in enumerate(next_q_values_list):
+                    # For this critic ensemble, compute target Q-values for each objective
+                    critic_target_q = []
+                    for obj_idx, next_q_values in enumerate(next_q_values_per_critic):
+                        # Apply entropy and discount to this objective
+                        obj_target_q = (
+                                replay_data.rewards[:, obj_idx].reshape(-1, 1) +
+                                (1 - replay_data.dones).reshape(-1, 1) *
+                                self.gamma * (next_q_values - self.ent_coef * next_log_prob)
+                        )
+                        critic_target_q.append(obj_target_q)
+                    target_q_values.append(critic_target_q)
+
+            # Get current Q-values for each critic ensemble and objective
+            current_q_values_list = self.critic(replay_data.observations, replay_data.actions)
+
+            # Compute critic loss
+            critic_loss = 0
+            for critic_idx, (current_q_per_critic, target_q_per_critic) in enumerate(zip(current_q_values_list, target_q_values)):
+                for obj_idx, (current_q, target_q) in enumerate(zip(current_q_per_critic, target_q_per_critic)):
+                    # Apply preference weight to objective loss
+                    obj_loss = F.mse_loss(current_q, target_q) * self.preference_weights[obj_idx]
+                    critic_loss += obj_loss
+
+                    # Log each objective loss
+                    if self.num_timesteps % 1000 == 0 and critic_idx == 0:  # Only log first critic for clarity
+                        self.logger.record(f"train/critic_{critic_idx}_obj_{obj_idx}_loss", obj_loss.item())
+
+            critic_losses.append(critic_loss.item())
+
+            # Optimize critics
+            self.critic.optimizer.zero_grad()
+            critic_loss.backward()
+            self.critic.optimizer.step()
+
+            # Compute actor loss
+            q_values_pi_list = self.critic(replay_data.observations, actions_pi)
+
+            # Modified actor loss computation with scalarization
+            actor_loss = 0
+            for critic_idx, q_values_per_critic in enumerate(q_values_pi_list):
+                # Scalarize Q-values for this critic using preference weights
+                scalarized_q = 0
+                for obj_idx, q_values in enumerate(q_values_per_critic):
+                    scalarized_q += self.preference_weights[obj_idx] * q_values
+
+                # Contribution to actor loss from this critic
+                critic_actor_loss = (self.ent_coef * log_prob - scalarized_q).mean()
+                actor_loss += critic_actor_loss / len(q_values_pi_list)  # Average across critics
+
+            actor_losses.append(actor_loss.item())
+
+            # Optimize the actor
+            self.actor.optimizer.zero_grad()
+            actor_loss.backward()
+            self.actor.optimizer.step()
+
+            # Optimize entropy coefficient if needed
+            ent_coef_loss = None
+            if self.ent_coef_optimizer is not None:
+                ent_coef_loss = -(self.log_ent_coef * (log_prob + self.target_entropy).detach()).mean()
+                ent_coef_losses.append(ent_coef_loss.item())
+
+                self.ent_coef_optimizer.zero_grad()
+                ent_coef_loss.backward()
+                self.ent_coef_optimizer.step()
+
+                self.ent_coef = th.exp(self.log_ent_coef.detach())
+
+            # Update target networks
+            if gradient_step % self.target_update_interval == 0:
+                polyak_update(self.critic.parameters(), self.critic_target.parameters(), self.tau)
+
+        # Log mean values
+        self._n_updates += gradient_steps
 
         # Logging
         self.logger.record("train/n_updates", self._n_updates)
-
+        if len(actor_losses) > 0:
+            self.logger.record("train/actor_loss", np.mean(actor_losses))
+        if len(critic_losses) > 0:
+            self.logger.record("train/critic_loss", np.mean(critic_losses))
+        if len(ent_coef_losses) > 0 and ent_coef_loss is not None:
+            self.logger.record("train/ent_coef_loss", np.mean(ent_coef_losses))
+            self.logger.record("train/ent_coef", self.ent_coef.item())
 
     def _is_dominated(self, reward_vec1, reward_vec2):
         """
@@ -453,7 +539,6 @@ class MOSAC(SAC):
         strictly_better = np.any(reward_vec2 > reward_vec1)
 
         return at_least_as_good and strictly_better
-
 
     def _update_pareto_front(self, candidate):
         """
@@ -473,7 +558,7 @@ class MOSAC(SAC):
         # Add candidate to Pareto front
         self.pareto_front.append(candidate)
 
-    def _extract_mo_rewards(self, env_output):
+    def _extract_scalar_rewards(self, env_output):
         """
         Extract multi-objective rewards from environment output.
         Adapts the environment's reward to the multi-objective format.

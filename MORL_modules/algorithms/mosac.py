@@ -3,6 +3,7 @@ import torch as th
 import torch.nn.functional as F
 from typing import Any, Dict, List, Optional, Tuple, Type, Union, Callable
 from gymnasium import spaces
+from stable_baselines3.common.buffers import ReplayBuffer
 
 from stable_baselines3.sac.policies import SACPolicy
 from stable_baselines3.sac.sac import SAC
@@ -10,6 +11,8 @@ from stable_baselines3.common.policies import ContinuousCritic
 from stable_baselines3.common.preprocessing import get_action_dim
 from stable_baselines3.common.torch_layers import create_mlp
 from stable_baselines3.common.type_aliases import GymEnv, Schedule, TensorDict
+import gymnasium as gym
+from stable_baselines3.common.torch_layers import FlattenExtractor
 
 def register_mosac():
     from rl_zoo3 import ALGOS
@@ -24,27 +27,39 @@ class MOContinuousCritic(ContinuousCritic):
     """
     def __init__(self, observation_space: spaces.Space, action_space: spaces.Space,
             net_arch: List[int],  num_objectives: int = 2,
-            features_extractor_class = None, features_extractor_kwargs: Optional[Dict[str, Any]] = None,
+            features_extractor_class = FlattenExtractor, features_extractor_kwargs: Optional[Dict[str, Any]] = None,
             share_features_extractor: bool = True, n_critics: int = 2,
             activation_fn: Type[th.nn.Module] = th.nn.ReLU, normalize_images: bool = True,
             share_features_across_objectives: bool = True):
 
+        # Manually create the features extractor since base class does not handle it
+        if features_extractor_class is None:
+            # Use default extractor (e.g., FlattenExtractor) if none is provided
+            from stable_baselines3.common.torch_layers import FlattenExtractor
+            features_extractor_class = FlattenExtractor
 
-        super(ContinuousCritic, self).__init__(
-            observation_space,
-            action_space,
-            features_extractor_class,
-            features_extractor_kwargs,
-            normalize_images=normalize_images,
+        # Manually create the features extractor since base class does not handle it
+        features_extractor = features_extractor_class(observation_space, **( features_extractor_kwargs or {}))
+        super().__init__(
+            observation_space=observation_space,
+            action_space=action_space,
+            net_arch=net_arch,
+            activation_fn=activation_fn,
+            n_critics=n_critics,
+            features_extractor = features_extractor,
+            features_dim = features_extractor.features_dim
+
         )
 
+        self.features_extractor = features_extractor
+        self.features_dim = self.features_extractor.features_dim
         self.num_objectives = num_objectives
         self.share_features_extractor = share_features_extractor
         self.share_features_across_objectives = share_features_across_objectives
         self.n_critics = n_critics
         self.q_networks = []
 
-        action_dim = get_action_dim(self.action_space)
+        action_dim = action_space.shape[0]
 
         # Create separate q-networks for each critic ensemble and each objective
         for i in range(self.n_critics):
@@ -119,7 +134,7 @@ class MOContinuousCritic(ContinuousCritic):
         Returns:
             List of lists: [critic_ensemble][objective] -> q_value tensor
         """
-        features = self.extract_features(obs, self.features_extractor)
+        features =  self.features_extractor(obs)#self.extract_features(obs, self.features_extractor)
 
         # Get Q-values from each critic ensemble
         q_values = []
@@ -159,6 +174,7 @@ class MOContinuousCritic(ContinuousCritic):
             scalarized_q_values.append(scalarized)
 
         return scalarized_q_values
+
 
 
 class MOSACPolicy(SACPolicy):
