@@ -29,7 +29,6 @@ class MOContinuousCritic(ContinuousCritic):
             activation_fn: Type[th.nn.Module] = th.nn.ReLU, normalize_images: bool = True,
             share_features_across_objectives: bool = True):
 
-
         super(ContinuousCritic, self).__init__(
             observation_space,
             action_space,

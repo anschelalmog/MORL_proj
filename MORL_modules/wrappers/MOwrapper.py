@@ -114,7 +114,7 @@ class MOEnergyNetWrapper(gym.Wrapper):
             battery_change = abs(battery_level - self.prev_battery_level)
             # Reward being in middle range (30-70%) to avoid extremes
             middle_range_factor = 1.0 - 2.0 * abs(battery_level - 50.0) / 100.0
-
+            #TODO: make in degrading exponential
             battery_health_reward = 0.5 * middle_range_factor - 0.5 * (battery_change / 20.0)
             mo_rewards[1] = battery_health_reward
             self.current_battery_health_reward += battery_health_reward

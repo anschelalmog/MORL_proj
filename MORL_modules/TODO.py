@@ -1,4 +1,4 @@
-# TODO:
+# TODO: 14/05
 # run a default PCS agent -> and get the info from the energy net
 # https://github.com/CLAIR-LAB-TECHNION/energy-net/tree/main/energy_net/model/rewards
 # decide and implement how to compute each reward
@@ -12,4 +12,13 @@
 
 
 # action = battery(t)-battery(t-1)
-# act
+
+
+# TODO: 21/05:
+# define well the rewards and how to get them
+# "   battery_level = self.env.unwrapped.controller.pcsunit.battery.get_state() "
+# # Critic 1 -> max profit <- "ecomomic"
+# " Critic 2 -> bound actions on battery (try to minimize)
+#
+#
+#
