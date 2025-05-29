@@ -1,0 +1,58 @@
+import pytest
+import torch as th
+import numpy as np
+import gymnasium as gym
+from stable_baselines3.common.utils import get_device
+from stable_baselines3.common.preprocessing import preprocess_obs
+
+from scalarize_algorithm.mosac_scalarized import MOSAC, MOSACPolicy
+@pytest.fixture
+def dummy_env():
+    return gym.make("Pendulum-v1")  # A continuous control env suitable for SAC
+
+@pytest.fixture
+def mosac_policy(dummy_env):
+    observation_space = dummy_env.observation_space
+    action_space = dummy_env.action_space
+
+    policy = MOSACPolicy(
+        observation_space=observation_space,
+        action_space=action_space,
+        lr_schedule=lambda _: 1e-3,
+        num_objectives=3,
+        net_arch=[64, 64],
+        activation_fn=th.nn.ReLU,
+        use_sde=False,
+        log_std_init=-2.0,
+        normalize_images=False,
+    )
+    return policy
+
+def test_policy_initialization(mosac_policy):
+    assert isinstance(mosac_policy.actor, th.nn.Module)
+    assert isinstance(mosac_policy.critic, th.nn.Module)
+    assert mosac_policy.num_objectives == 3
+
+def test_actor_output_shape(mosac_policy, dummy_env):
+    obs, _ = dummy_env.reset()
+    obs_tensor = th.as_tensor(obs, dtype=th.float32).unsqueeze(0).to(get_device("auto"))
+
+    action_dist = mosac_policy.actor.get_distribution(obs_tensor)
+    action_sample = action_dist.sample()
+
+    assert action_sample.shape == (1, dummy_env.action_space.shape[0])
+
+def test_critic_output_shapes(mosac_policy, dummy_env):
+    obs, _ = dummy_env.reset()
+    obs_tensor = th.as_tensor(obs, dtype=th.float32).unsqueeze(0).to(get_device("auto"))
+    action = dummy_env.action_space.sample()
+    action_tensor = th.as_tensor(action, dtype=th.float32).unsqueeze(0).to(get_device("auto"))
+
+    critic_output = mosac_policy.critic(obs_tensor, action_tensor)
+    assert isinstance(critic_output, list)
+    assert all(isinstance(q_values, list) for q_values in critic_output)
+
+    for critic in critic_output:
+        assert len(critic) == mosac_policy.num_objectives
+        for q in critic:
+            assert q.shape == (1, 1)
