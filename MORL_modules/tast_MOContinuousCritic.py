@@ -1,7 +1,7 @@
 import pytest
 import torch as th
 import numpy as np
-from scalarize_algorithm.mosac_scalarized import MOContinuousCritic
+from algorithms.mosac import MOContinuousCritic, MOSACPolicy,  MOReplayBuffer
 import gymnasium as gym
 
 def test_mo_continuous_critic_forward_shapes():

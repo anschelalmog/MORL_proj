@@ -34,11 +34,17 @@ def test_policy_initialization(mosac_policy):
     assert mosac_policy.num_objectives == 3
 
 def test_actor_output_shape(mosac_policy, dummy_env):
+
+
     obs, _ = dummy_env.reset()
     obs_tensor = th.as_tensor(obs, dtype=th.float32).unsqueeze(0).to(get_device("auto"))
 
-    action_dist = mosac_policy.actor.get_distribution(obs_tensor)
-    action_sample = action_dist.sample()
+    # This uses the SACPolicy's logic to compute the distribution#features_extractor(obs)
+    features = mosac_policy.features_extractor(obs_tensor)
+    latent_pi, _ = mosac_policy.mlp_extractor(features)
+    distribution = mosac_policy._get_action_dist_from_latent(latent_pi)
+
+    action_sample = distribution.sample()
 
     assert action_sample.shape == (1, dummy_env.action_space.shape[0])
 

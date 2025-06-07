@@ -32,23 +32,32 @@ class MOContinuousCritic(ContinuousCritic):
             activation_fn: Type[th.nn.Module] = th.nn.ReLU, normalize_images: bool = True,
             share_features_across_objectives: bool = True):
 
+#<<<<<<< HEAD
         # Manually create the features extractor since base class does not handle it
         if features_extractor_class is None:
             # Use default extractor (e.g., FlattenExtractor) if none is provided
-            from stable_baselines3.common.torch_layers import FlattenExtractor
+          
             features_extractor_class = FlattenExtractor
 
         # Manually create the features extractor since base class does not handle it
         features_extractor = features_extractor_class(observation_space, **( features_extractor_kwargs or {}))
-        super().__init__(
-            observation_space=observation_space,
-            action_space=action_space,
-            net_arch=net_arch,
-            activation_fn=activation_fn,
-            n_critics=n_critics,
-            features_extractor = features_extractor,
-            features_dim = features_extractor.features_dim
+      #  super().__init__(
+     #       observation_space=observation_space,
+    #        action_space=action_space,
+   #         net_arch=net_arch,
+  #          activation_fn=activation_fn,
+ #           n_critics=n_critics,
+#            features_extractor = features_extractor,
+ #           features_dim = features_extractor.features_dim
 
+#=======
+        super(ContinuousCritic, self).__init__(
+            observation_space,
+            action_space,
+            features_extractor_class,
+            features_extractor_kwargs,
+            normalize_images=normalize_images,
+#>>>>>>> main
         )
 
         self.features_extractor = features_extractor

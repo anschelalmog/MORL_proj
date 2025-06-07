@@ -13,6 +13,7 @@ from stable_baselines3.common.torch_layers import create_mlp
 from stable_baselines3.common.type_aliases import GymEnv, Schedule, TensorDict
 import gymnasium as gym
 from stable_baselines3.common.torch_layers import FlattenExtractor
+import sre_constants
 
 def register_mosac():
     from rl_zoo3 import ALGOS
@@ -30,14 +31,17 @@ class MOContinuousCritic(ContinuousCritic):
             features_extractor_class = FlattenExtractor, features_extractor_kwargs: Optional[Dict[str, Any]] = None,
             share_features_extractor: bool = True, n_critics: int = 2,
             activation_fn: Type[th.nn.Module] = th.nn.ReLU, normalize_images: bool = True,
-            share_features_across_objectives: bool = True):
+            share_features_across_objectives: bool = True, features_extractor: Optional[th.nn.Module] = None,
+                 features_dim: Optional[int] = 2):
 
         if features_extractor_class is None:
             # Use default extractor (e.g., FlattenExtractor) if none is providedr
             features_extractor_class = FlattenExtractor
 
         # Manually create the features extractor since base class does not handle it
-        features_extractor = features_extractor_class(observation_space, **( features_extractor_kwargs or {}))
+        if features_extractor is None:
+            features_extractor = features_extractor_class(observation_space, **( features_extractor_kwargs or {}))
+
         super().__init__(
             observation_space=observation_space,
             action_space=action_space,
@@ -206,6 +210,9 @@ class MOSACPolicy(SACPolicy):
             # Use default extractor (e.g., FlattenExtractor) if none is providedr
             features_extractor_class = FlattenExtractor
 
+
+
+
         super().__init__(
             observation_space = observation_space,
             action_space = action_space,
@@ -225,9 +232,21 @@ class MOSACPolicy(SACPolicy):
             n_critics = n_critics,
             share_features_extractor = share_features_extractor,
         )
+        # Manually create the features extractor since base class does not handle it
+        #self.features_extractor = features_extractor_class(observation_space, **(features_extractor_kwargs or {}))
+        #self.features_extractor = features_extractor
+    #def make_critic(self, features_extractor: Optional[th.nn.Module] = None) -> MOContinuousCritic:
+    #    critic_kwargs = self._update_features_extractor(self.critic_kwargs, features_extractor)
+    #
+    #    critic_kwargs.update({
+    #        "num_objectives": self.num_objectives,
+    #        "share_features_across_objectives": self.share_features_across_objectives,
+    #    })
 
-    def make_critic(self )  -> MOContinuousCritic:
-                    #, features_extractor=None) -> MOContinuousCritic:
+    #    return MOContinuousCritic(**critic_kwargs).to(self.device)
+
+    def make_critic(self, features_extractor: Optional[th.nn.Module] = None )  -> MOContinuousCritic:
+
         """
         Create a multi-objective critic.
         Uses SB3's network structure but with multiple objective heads.
@@ -236,15 +255,17 @@ class MOSACPolicy(SACPolicy):
             Multi-objective continuous critic
         """
         critic_kwargs = self._update_features_extractor(
-            self.critic_kwargs#, features_extractor
-        )
-
+           self.critic_kwargs, features_extractor
+       )
+        #critic_kwargs = self.critic_kwargs
         critic_kwargs.update({
             "num_objectives": self.num_objectives,
-            "share_features_across_objectives": self.share_features_across_objectives
+            "share_features_across_objectives": self.share_features_across_objectives,
+            "features_extractor_class": self.features_extractor_class,
+            "features_extractor": self.features_extractor,
         })
-        breakpoint()
-        ptint(critic_kwargs)
+        #breakpoint()
+        #print(critic_kwargs)
 
         return MOContinuousCritic(**critic_kwargs).to(self.device)
 

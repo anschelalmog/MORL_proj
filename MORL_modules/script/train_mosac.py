@@ -6,8 +6,8 @@ from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv
 
-# Import our code
-from mosac import MOSAC, MOEnergyNetWrapper, register_mosac
+from MORL_modules.algorithms.mosac import MOSAC, register_mosac
+from MORL_modules.wrappers.MOwrapper import MOEnergyNetWrapper
 
 # Import energy_net environment
 import energy_net.env.register_envs

@@ -10,6 +10,7 @@ from stable_baselines3.common.policies import ContinuousCritic
 from stable_baselines3.common.preprocessing import get_action_dim
 from stable_baselines3.common.torch_layers import create_mlp
 from stable_baselines3.common.type_aliases import GymEnv, Schedule, TensorDict
+import sre_constants
 
 def register_mosac():
     from rl_zoo3 import ALGOS
