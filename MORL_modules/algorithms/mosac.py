@@ -13,6 +13,7 @@ from stable_baselines3.common.torch_layers import create_mlp
 from stable_baselines3.common.type_aliases import GymEnv, Schedule, TensorDict
 import gymnasium as gym
 from stable_baselines3.common.torch_layers import FlattenExtractor
+import pdb
 
 def register_mosac():
     from rl_zoo3 import ALGOS
@@ -25,39 +26,32 @@ class MOContinuousCritic(ContinuousCritic):
     Instead of creating our own neural network implementation, we'll use
     SB3's built-in network creation functions.
     """
+
     def __init__(self, observation_space: spaces.Space, action_space: spaces.Space,
             net_arch: List[int],  num_objectives: int = 2,
             features_extractor_class = FlattenExtractor, features_extractor_kwargs: Optional[Dict[str, Any]] = None,
             share_features_extractor: bool = True, n_critics: int = 2,
             activation_fn: Type[th.nn.Module] = th.nn.ReLU, normalize_images: bool = True,
-            share_features_across_objectives: bool = True):
+            share_features_across_objectives: bool = True, features_extractor: Optional[th.nn.Module] = None,
+                 features_dim: Optional[int] = 2):
 
-#<<<<<<< HEAD
-        # Manually create the features extractor since base class does not handle it
         if features_extractor_class is None:
-            # Use default extractor (e.g., FlattenExtractor) if none is provided
-          
+            # Use default extractor (e.g., FlattenExtractor) if none is providedr
             features_extractor_class = FlattenExtractor
 
         # Manually create the features extractor since base class does not handle it
-        features_extractor = features_extractor_class(observation_space, **( features_extractor_kwargs or {}))
-      #  super().__init__(
-     #       observation_space=observation_space,
-    #        action_space=action_space,
-   #         net_arch=net_arch,
-  #          activation_fn=activation_fn,
- #           n_critics=n_critics,
-#            features_extractor = features_extractor,
- #           features_dim = features_extractor.features_dim
+        if features_extractor is None:
+            features_extractor = features_extractor_class(observation_space, **( features_extractor_kwargs or {}))
 
-#=======
-        super(ContinuousCritic, self).__init__(
-            observation_space,
-            action_space,
-            features_extractor_class,
-            features_extractor_kwargs,
-            normalize_images=normalize_images,
-#>>>>>>> main
+        super().__init__(
+            observation_space=observation_space,
+            action_space=action_space,
+            net_arch=net_arch,
+            activation_fn=activation_fn,
+            n_critics=n_critics,
+            features_extractor= features_extractor,
+            features_dim = features_extractor.features_dim
+
         )
 
         self.features_extractor = features_extractor
@@ -200,7 +194,7 @@ class MOSACPolicy(SACPolicy):
             activation_fn: Type[th.nn.Module] = th.nn.ReLU,
             use_sde: bool = False,
             log_std_init: float = -3,
-            sde_net_arch: Optional[List[int]] = None,
+            sde_net_arch: Optional[List[int]] = FlattenExtractor,
             use_expln: bool = False,
             clip_mean: float = 2.0,
             features_extractor_class = None,
@@ -214,28 +208,39 @@ class MOSACPolicy(SACPolicy):
     ):
         self.num_objectives = num_objectives
         self.share_features_across_objectives = share_features_across_objectives
+        if features_extractor_class is None:
+            # Use default extractor (e.g., FlattenExtractor) if none is providedr
+            features_extractor_class = FlattenExtractor
+
+
+
 
         super().__init__(
-            observation_space,
-            action_space,
-            lr_schedule,
-            net_arch,
-            activation_fn,
-            use_sde,
-            log_std_init,
-            sde_net_arch,
-            use_expln,
-            clip_mean,
-            features_extractor_class,
-            features_extractor_kwargs,
-            normalize_images,
-            optimizer_class,
-            optimizer_kwargs,
-            n_critics,
-            share_features_extractor,
+            observation_space = observation_space,
+            action_space = action_space,
+            lr_schedule = lr_schedule,
+            net_arch = net_arch,
+            activation_fn = activation_fn,
+            use_sde = use_sde,
+            log_std_init = log_std_init,
+            #sde_net_arch = sde_net_arch,
+            use_expln = use_expln,
+            clip_mean = clip_mean,
+            features_extractor_class = features_extractor_class,
+            features_extractor_kwargs = features_extractor_kwargs,
+            normalize_images = normalize_images,
+            optimizer_class = optimizer_class,
+            optimizer_kwargs = optimizer_kwargs ,
+            n_critics = n_critics,
+            share_features_extractor = share_features_extractor,
         )
 
-    def make_critic(self, features_extractor=None) -> MOContinuousCritic:
+
+
+
+
+    def make_critic(self, features_extractor: Optional[th.nn.Module] = None )  -> MOContinuousCritic:
+
         """
         Create a multi-objective critic.
         Uses SB3's network structure but with multiple objective heads.
@@ -243,13 +248,14 @@ class MOSACPolicy(SACPolicy):
         Returns:
             Multi-objective continuous critic
         """
-        critic_kwargs = self._update_features_extractor(
-            self.critic_kwargs, features_extractor
-        )
-
+        #critic_kwargs = self._update_features_extractor(
+         #  self.critic_kwargs, features_extractor
+       #)
+        critic_kwargs = self.critic_kwargs
         critic_kwargs.update({
             "num_objectives": self.num_objectives,
-            "share_features_across_objectives": self.share_features_across_objectives
+            "share_features_across_objectives": self.share_features_across_objectives,
+            "features_extractor_class": self.features_extractor_class,
         })
 
         return MOContinuousCritic(**critic_kwargs).to(self.device)
@@ -595,7 +601,7 @@ class MOSAC(SAC):
             Vector reward with shape (n_envs, num_objectives)
         """
         obs, reward, terminated, truncated, info = env_output
-
+        pdb.set_trace()
         # Default case: Single scalar reward - convert to vector with first objective
         if isinstance(reward, (int, float, np.number)) or (isinstance(reward, np.ndarray) and reward.ndim == 0):
             mo_reward = np.zeros((self.n_envs, self.num_objectives))

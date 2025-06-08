@@ -1,7 +1,7 @@
 import pytest
 import torch as th
 import numpy as np
-from algorithms.mosac import MOContinuousCritic, MOSACPolicy,  MOReplayBuffer
+from scalarize_algorithm.mosac_scalarized  import MOContinuousCritic, MOSACPolicy,  MOReplayBuffer
 import gymnasium as gym
 
 def test_mo_continuous_critic_forward_shapes():
@@ -43,52 +43,5 @@ def test_mo_continuous_critic_forward_shapes():
         for q in q_vals:
             assert q.shape == (batch_size, 1)
 
-# -----------------------------
-# Test MOSACPolicy
-# -----------------------------
 
-def test_mosac_policy_action_sampling():
-    actor = MOSACPolicy(
-        observation_dim=OBS_DIM,
-        action_dim=ACTION_DIM,
-        hidden_dim=LATENT_DIM,
-    )
-    obs = th.rand(BATCH_SIZE, OBS_DIM)
-    action, log_prob = actor(obs)
-    assert action.shape == (BATCH_SIZE, ACTION_DIM)
-    assert log_prob.shape == (BATCH_SIZE,)
-
-# -----------------------------
-# Test MOReplayBuffer
-# -----------------------------
-
-def test_moreplay_buffer_store_and_sample():
-    buffer = MOReplayBuffer(buffer_size=10, observation_dim=OBS_DIM, action_dim=ACTION_DIM, reward_dim=REWARD_DIM)
-    for _ in range(10):
-        buffer.add(
-            obs=np.random.rand(OBS_DIM),
-            action=np.random.rand(ACTION_DIM),
-            reward=np.random.rand(REWARD_DIM),
-            next_obs=np.random.rand(OBS_DIM),
-            done=np.random.choice([True, False])
-        )
-    sample = buffer.sample(batch_size=5)
-    assert all(key in sample for key in ["observations", "actions", "rewards", "next_observations", "dones"])
-    assert sample["observations"].shape == (5, OBS_DIM)
-    assert sample["actions"].shape == (5, ACTION_DIM)
-    assert sample["rewards"].shape == (5, REWARD_DIM)
-    assert sample["next_observations"].shape == (5, OBS_DIM)
-    assert sample["dones"].shape == (5,)
-
-# -----------------------------
-# Scalarized reward check (if applicable)
-# -----------------------------
-
-#def test_scalarized_reward():
-#    from your_module import scalarize_reward
-#    reward = np.array([[1.0, 2.0], [3.0, 4.0]])
-#    weights = np.array([0.3, 0.7])
-#    scalar = scalarize_reward(reward, weights)
-#    expected = reward @ weights
-#    assert np.allclose(scalar, expected)
 

@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from typing import Any, Dict, List, Optional, Tuple, Type, Union, Callable
 from gymnasium import spaces
 from stable_baselines3.common.buffers import ReplayBuffer
+from stable_baselines3.common.torch_layers import MlpExtractor
 
 from stable_baselines3.sac.policies import SACPolicy
 from stable_baselines3.sac.sac import SAC
@@ -14,6 +15,7 @@ from stable_baselines3.common.type_aliases import GymEnv, Schedule, TensorDict
 import gymnasium as gym
 from stable_baselines3.common.torch_layers import FlattenExtractor
 import sre_constants
+import pdb
 
 def register_mosac():
     from rl_zoo3 import ALGOS
@@ -64,6 +66,7 @@ class MOContinuousCritic(ContinuousCritic):
         action_dim = action_space.shape[0]
 
         # Create separate q-networks for each critic ensemble and each objective
+
         for i in range(self.n_critics):
             # For each critic ensemble, create multiple heads (one per objective)
             if share_features_across_objectives:
@@ -192,7 +195,7 @@ class MOSACPolicy(SACPolicy):
             activation_fn: Type[th.nn.Module] = th.nn.ReLU,
             use_sde: bool = False,
             log_std_init: float = -3,
-            sde_net_arch: Optional[List[int]] = None,
+            sde_net_arch: Optional[List[int]] = FlattenExtractor,
             use_expln: bool = False,
             clip_mean: float = 2.0,
             features_extractor_class = None,
@@ -232,18 +235,10 @@ class MOSACPolicy(SACPolicy):
             n_critics = n_critics,
             share_features_extractor = share_features_extractor,
         )
-        # Manually create the features extractor since base class does not handle it
-        #self.features_extractor = features_extractor_class(observation_space, **(features_extractor_kwargs or {}))
-        #self.features_extractor = features_extractor
-    #def make_critic(self, features_extractor: Optional[th.nn.Module] = None) -> MOContinuousCritic:
-    #    critic_kwargs = self._update_features_extractor(self.critic_kwargs, features_extractor)
-    #
-    #    critic_kwargs.update({
-    #        "num_objectives": self.num_objectives,
-    #        "share_features_across_objectives": self.share_features_across_objectives,
-    #    })
 
-    #    return MOContinuousCritic(**critic_kwargs).to(self.device)
+
+
+
 
     def make_critic(self, features_extractor: Optional[th.nn.Module] = None )  -> MOContinuousCritic:
 
@@ -254,15 +249,15 @@ class MOSACPolicy(SACPolicy):
         Returns:
             Multi-objective continuous critic
         """
-        critic_kwargs = self._update_features_extractor(
-           self.critic_kwargs, features_extractor
-       )
-        #critic_kwargs = self.critic_kwargs
+        #critic_kwargs = self._update_features_extractor(
+         #  self.critic_kwargs, features_extractor
+       #)
+        critic_kwargs = self.critic_kwargs
         critic_kwargs.update({
             "num_objectives": self.num_objectives,
             "share_features_across_objectives": self.share_features_across_objectives,
             "features_extractor_class": self.features_extractor_class,
-            "features_extractor": self.features_extractor,
+            #"features_extractor": self.features_extractor,
         })
         #breakpoint()
         #print(critic_kwargs)
@@ -321,13 +316,16 @@ class MOReplayBuffer(ReplayBuffer):
     ) -> None:
         """Add a new transition to the buffer with vector reward."""
         # Reshape rewards if needed to ensure correct shape
+        breakpoint()
         if reward.ndim == 1:
             reward = reward.reshape(-1, self.num_objectives)
 
         # Validate reward shape
         assert reward.shape[1] == self.num_objectives, f"Expected reward with {self.num_objectives} objectives, got {reward.shape[1]}"
         # Compute scalar rewards
+
         scalar_rewards = np.dot(reward, self.weights)
+        breakpoint()
         # Call parent method but handle reward differently
         super().add(obs, next_obs, action, scalar_rewards, done, infos)
 
@@ -407,6 +405,7 @@ class MOSAC(SAC):
         # Ensure replay buffer kwargs contain num_objectives
         if replay_buffer_kwargs is None:
             replay_buffer_kwargs = {}
+
         replay_buffer_kwargs["num_objectives"] = num_objectives
         # Ensure replay buffer kwargs contain preference_weights
         replay_buffer_kwargs["weights"] = self.preference_weights
@@ -607,7 +606,7 @@ class MOSAC(SAC):
                 action = self._add_noise_to_action(action, action_noise, env)
 
             new_obs, reward, terminated, truncated, infos = env.step(action)
-
+            #breakpoint()
             # Extract multi-objective rewards
             mo_reward = self._extract_mo_rewards((new_obs, reward, terminated, truncated, infos))
 
