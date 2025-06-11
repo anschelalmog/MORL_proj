@@ -257,10 +257,7 @@ class MOSACPolicy(SACPolicy):
             "num_objectives": self.num_objectives,
             "share_features_across_objectives": self.share_features_across_objectives,
             "features_extractor_class": self.features_extractor_class,
-            #"features_extractor": self.features_extractor,
         })
-        #breakpoint()
-        #print(critic_kwargs)
 
         return MOContinuousCritic(**critic_kwargs).to(self.device)
 

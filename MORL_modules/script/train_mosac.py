@@ -1,10 +1,16 @@
-import gymnasium as gym
-import numpy as np
-import argparse
 import os
-from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback
+import sys
+import numpy as np
+import torch as th
+import gymnasium as gym
+from datetime import datetime
+import matplotlib.pyplot as plt
+from stable_baselines3.common.vec_env import DummyVecEnv, VecMonitor
+from stable_baselines3.common.callbacks import BaseCallback, CheckpointCallback, EvalCallback
 from stable_baselines3.common.monitor import Monitor
-from stable_baselines3.common.vec_env import DummyVecEnv
+
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 
 from MORL_modules.algorithms.mosac import MOSAC, register_mosac
 from MORL_modules.wrappers.MOwrapper import MOEnergyNetWrapper
@@ -12,183 +18,246 @@ from MORL_modules.wrappers.MOwrapper import MOEnergyNetWrapper
 # Import energy_net environment
 import energy_net.env.register_envs
 from energy_net.env import EnergyNetV0
+from alternating_wrappers import PCSEnvWrapper
 
-# Make sure alternating_wrappers is available
-from tmp.alternating_wrappers import PCSEnvWrapper  # Assuming this exists
 
-def make_mo_pcs_env(
-        log_dir="logs",
-        monitor=True,
-        num_objectives=4,
-        preference_weights=None,
-        **env_kwargs
-):
+class MORewardLogger(BaseCallback):
+    """Custom callback for logging multi-objective rewards."""
+
+    def __init__(self, num_objectives=4, log_freq=100, verbose=0):
+        super().__init__(verbose)
+        self.num_objectives = num_objectives
+        self.log_freq = log_freq
+        self.episode_rewards = [[] for _ in range(num_objectives)]
+        self.current_rewards = np.zeros((1, num_objectives))  # For single env
+        self.episode_count = 0
+
+        # For plotting
+        self.episode_numbers = []
+        self.mean_rewards_per_obj = [[] for _ in range(num_objectives)]
+
+    def _on_step(self) -> bool:
+        # Get info from the environment
+        if len(self.locals['infos']) > 0:
+            info = self.locals['infos'][0]
+
+            # Extract multi-objective rewards
+            if 'mo_rewards' in info:
+                mo_rewards = info['mo_rewards']
+                self.current_rewards[0] += mo_rewards
+
+            # Check if episode ended
+            if self.locals['dones'][0]:
+                # Log episode rewards for each objective
+                for obj_idx in range(self.num_objectives):
+                    self.episode_rewards[obj_idx].append(self.current_rewards[0, obj_idx])
+
+                    # Record to tensorboard
+                    self.logger.record(f'rollout/ep_reward_obj_{obj_idx}', self.current_rewards[0, obj_idx])
+
+                # Record scalarized reward
+                scalarized = np.dot(self.current_rewards[0], self.model.preference_weights)
+                self.logger.record('rollout/ep_reward_scalarized', scalarized)
+
+                # Reset current rewards
+                self.current_rewards[0] = 0
+                self.episode_count += 1
+
+                # Calculate and store means for plotting
+                if self.episode_count % self.log_freq == 0:
+                    self.episode_numbers.append(self.episode_count)
+                    for obj_idx in range(self.num_objectives):
+                        if len(self.episode_rewards[obj_idx]) > 0:
+                            mean_reward = np.mean(self.episode_rewards[obj_idx][-self.log_freq:])
+                            self.mean_rewards_per_obj[obj_idx].append(mean_reward)
+
+        return True
+
+    def plot_rewards(self, save_path):
+        """Plot the learning curves for each objective."""
+        if len(self.episode_numbers) == 0:
+            print("No episodes completed yet, cannot plot.")
+            return
+
+        fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+        axes = axes.flatten()
+
+        objective_names = ['Economic', 'Battery Health', 'Grid Support', 'Energy Autonomy']
+
+        for obj_idx in range(self.num_objectives):
+            ax = axes[obj_idx]
+            if len(self.mean_rewards_per_obj[obj_idx]) > 0:
+                ax.plot(self.episode_numbers, self.mean_rewards_per_obj[obj_idx],
+                        label=f'Objective {obj_idx + 1}')
+                ax.set_xlabel('Episode')
+                ax.set_ylabel('Cumulative Reward')
+                ax.set_title(f'{objective_names[obj_idx]} Objective')
+                ax.grid(True, alpha=0.3)
+            else:
+                ax.text(0.5, 0.5, 'No data yet', ha='center', va='center',
+                        transform=ax.transAxes)
+                ax.set_title(f'{objective_names[obj_idx]} Objective')
+
+        plt.tight_layout()
+        plt.savefig(save_path, dpi=150)
+        plt.close()
+        print(f"Saved learning curves to {save_path}")
+
+
+def make_mo_pcs_env(seed=0, **env_kwargs):
     """Create a multi-objective PCS environment."""
-    # Create base environment with passed kwargs
+    # Create base environment
     base_env = EnergyNetV0(**env_kwargs)
 
     # Wrap for PCS-only training
     pcs_env = PCSEnvWrapper(base_env)
 
-    # Apply monitoring
-    if monitor:
-        os.makedirs(log_dir, exist_ok=True)
-        pcs_env = Monitor(pcs_env, log_dir)
+    # Set seed
+    pcs_env.seed(seed)
 
     # Apply multi-objective wrapper
-    mo_env = MOEnergyNetWrapper(
-        pcs_env,
-        num_objectives=num_objectives,
-        reward_weights=preference_weights
-    )
+    mo_env = MOEnergyNetWrapper(pcs_env, num_objectives=4)
 
     return mo_env
 
-def train_mosac(args):
-    """Train MOSAC agent on EnergyNet environment."""
-    # Set random seed for reproducibility
-    np.random.seed(args.seed)
 
-    # Prepare log directories
-    log_dir = os.path.join(args.log_folder, "mosac")
+def train_mosac():
+    """Train MOSAC agent with proper logging."""
+    # Register MOSAC
+    register_mosac()
+
+    # Configuration
+    config = {
+        'num_objectives': 4,
+        'n_timesteps': 100000,
+        'seed': 42,
+        'log_dir': 'logs/mosac',
+        'preference_weights': [0.4, 0.2, 0.2, 0.2],  # Economic, Battery, Grid, Autonomy
+        'learning_rate': 3e-4,
+        'batch_size': 256,
+        'buffer_size': 100000,
+        'learning_starts': 1000,
+        'tau': 0.005,
+        'gamma': 0.99,
+        'train_freq': 1,
+        'gradient_steps': 1,
+        'eval_freq': 5000,
+        'save_freq': 10000,
+    }
+
+    # Create directories
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_dir = os.path.join(config['log_dir'], timestamp)
     os.makedirs(log_dir, exist_ok=True)
 
-    tensorboard_log = os.path.join(args.log_folder, "tensorboard")
-    os.makedirs(tensorboard_log, exist_ok=True)
-
-    # Create environment
+    # Environment configuration
     env_kwargs = {
-        "pricing_policy": args.pricing_policy,
-        "demand_pattern": args.demand_pattern,
-        "cost_type": args.cost_type,
-        "dispatch_config": {
-            "use_dispatch_action": args.use_dispatch_action,
-            "default_strategy": args.dispatch_strategy
+        'pricing_policy': 'ONLINE',
+        'demand_pattern': 'SINUSOIDAL',
+        'cost_type': 'CONSTANT',
+        'dispatch_config': {
+            'use_dispatch_action': True,
+            'default_strategy': 'PROPORTIONAL'
         }
     }
 
-    # Create environment
-    env = make_mo_pcs_env(
-        log_dir=os.path.join(log_dir, "train_monitor"),
-        num_objectives=args.num_objectives,
-        **env_kwargs
-    )
+    # Create environments
+    print("Creating training environment...")
+    train_env = make_mo_pcs_env(seed=config['seed'], **env_kwargs)
+    train_env = Monitor(train_env, os.path.join(log_dir, "train"))
+    train_env = DummyVecEnv([lambda: train_env])
 
-    # Vectorize environment (required by SB3)
-    env = DummyVecEnv([lambda: env])
-
-    # Create evaluation environment
-    eval_env = make_mo_pcs_env(
-        log_dir=os.path.join(log_dir, "eval_monitor"),
-        num_objectives=args.num_objectives,
-        **env_kwargs
-    )
+    print("Creating evaluation environment...")
+    eval_env = make_mo_pcs_env(seed=config['seed'] + 100, **env_kwargs)
+    eval_env = Monitor(eval_env, os.path.join(log_dir, "eval"))
     eval_env = DummyVecEnv([lambda: eval_env])
 
-    # Set preference weights if specified
-    if args.preference_weights:
-        weights = [float(w) for w in args.preference_weights.split(',')]
-        assert len(weights) == args.num_objectives, "Number of weights must match number of objectives"
-    else:
-        # Default equal weights
-        weights = np.ones(args.num_objectives) / args.num_objectives
-
-    # Create policy_kwargs
-    policy_kwargs = {
-        "net_arch": {
-            "pi": [64, 64],  # Actor network
-            "qf": [64, 64]   # Critic network
-        },
-        "share_features_across_objectives": True
-    }
-
-    # Initialize MOSAC agent
+    # Initialize MOSAC
+    print("Initializing MOSAC agent...")
     model = MOSAC(
         policy="MlpPolicy",
-        env=env,
-        num_objectives=args.num_objectives,
-        preference_weights=weights,
-        learning_rate=args.learning_rate,
-        buffer_size=args.buffer_size,
-        batch_size=args.batch_size,
-        gamma=args.gamma,
+        env=train_env,
+        num_objectives=config['num_objectives'],
+        preference_weights=config['preference_weights'],
+        learning_rate=config['learning_rate'],
+        buffer_size=config['buffer_size'],
+        learning_starts=config['learning_starts'],
+        batch_size=config['batch_size'],
+        tau=config['tau'],
+        gamma=config['gamma'],
+        train_freq=config['train_freq'],
+        gradient_steps=config['gradient_steps'],
+        tensorboard_log=os.path.join(log_dir, 'tensorboard'),
         verbose=1,
-        tensorboard_log=tensorboard_log,
-        policy_kwargs=policy_kwargs,
-        device=args.device
+        seed=config['seed'],
+        device='cuda' if th.cuda.is_available() else 'cpu',
+        policy_kwargs={
+            'net_arch': {'pi': [64, 64], 'qf': [64, 64]},
+            'num_objectives': config['num_objectives']
+        },
+        replay_buffer_class=MOReplayBuffer,
+        replay_buffer_kwargs={'num_objectives': config['num_objectives']}
     )
 
-    # Setup callbacks
-    callbacks = []
+    # Callbacks
+    mo_logger = MORewardLogger(num_objectives=config['num_objectives'], log_freq=10)
 
-    # Checkpoint callback
-    if args.save_freq > 0:
-        checkpoint_callback = CheckpointCallback(
-            save_freq=max(args.save_freq // env.num_envs, 1),
-            save_path=os.path.join(log_dir, "checkpoints"),
-            name_prefix="mosac_model",
-            verbose=1
-        )
-        callbacks.append(checkpoint_callback)
-
-    # Evaluation callback
-    if args.eval_freq > 0:
-        eval_callback = EvalCallback(
-            eval_env,
-            best_model_save_path=os.path.join(log_dir, "best_model"),
-            log_path=os.path.join(log_dir, "eval_results"),
-            eval_freq=max(args.eval_freq // env.num_envs, 1),
-            n_eval_episodes=args.eval_episodes,
-            deterministic=True,
-            verbose=1
-        )
-        callbacks.append(eval_callback)
-
-    # Train model
-    model.learn(
-        total_timesteps=args.n_timesteps,
-        callback=callbacks,
-        log_interval=10
+    checkpoint_callback = CheckpointCallback(
+        save_freq=config['save_freq'],
+        save_path=os.path.join(log_dir, 'checkpoints'),
+        name_prefix='mosac',
+        save_replay_buffer=True,
+        save_vecnormalize=True
     )
 
-    # Save final model
-    model.save(os.path.join(log_dir, "final_model"))
+    eval_callback = EvalCallback(
+        eval_env,
+        best_model_save_path=os.path.join(log_dir, 'best_model'),
+        log_path=os.path.join(log_dir, 'eval'),
+        eval_freq=config['eval_freq'],
+        n_eval_episodes=5,
+        deterministic=True,
+        render=False
+    )
 
-    print(f"Training complete! Model saved to {os.path.join(log_dir, 'final_model')}")
+    callbacks = [mo_logger, checkpoint_callback, eval_callback]
 
-    return model
+    # Train
+    print(f"Starting training for {config['n_timesteps']} timesteps...")
+    print(f"Preference weights: {config['preference_weights']}")
+    print(f"Logging to: {log_dir}")
+
+    try:
+        model.learn(
+            total_timesteps=config['n_timesteps'],
+            callback=callbacks,
+            log_interval=10,
+            tb_log_name=f"mosac_{timestamp}",
+            reset_num_timesteps=True,
+            progress_bar=True
+        )
+
+        # Save final model
+        model.save(os.path.join(log_dir, 'final_model'))
+
+        # Plot final results
+        mo_logger.plot_rewards(os.path.join(log_dir, 'mosac_learning_curves.png'))
+
+        print(f"\nTraining completed successfully!")
+        print(f"Results saved to: {log_dir}")
+
+    except Exception as e:
+        print(f"\nError during training: {e}")
+        import traceback
+        traceback.print_exc()
+
+        # Try to save partial results
+        try:
+            mo_logger.plot_rewards(os.path.join(log_dir, 'mosac_partial_results.png'))
+            model.save(os.path.join(log_dir, 'partial_model'))
+        except:
+            pass
+
 
 if __name__ == "__main__":
-    # Register MOSAC with rl-baselines3-zoo
-    register_mosac()
-
-    parser = argparse.ArgumentParser(description="Train MOSAC on EnergyNet")
-
-    # Algorithm parameters
-    parser.add_argument("--num-objectives", type=int, default=4, help="Number of objectives")
-    parser.add_argument("--preference-weights", type=str, default=None, help="Comma-separated list of preference weights")
-    parser.add_argument("--learning-rate", type=float, default=3e-4, help="Learning rate")
-    parser.add_argument("--buffer-size", type=int, default=1000000, help="Replay buffer size")
-    parser.add_argument("--batch-size", type=int, default=256, help="Batch size for training")
-    parser.add_argument("--gamma", type=float, default=0.99, help="Discount factor")
-
-    # Environment parameters
-    parser.add_argument("--pricing-policy", type=str, default="ONLINE", help="Pricing policy")
-    parser.add_argument("--demand-pattern", type=str, default="SINUSOIDAL", help="Demand pattern")
-    parser.add_argument("--cost-type", type=str, default="CONSTANT", help="Cost type")
-    parser.add_argument("--use-dispatch-action", action="store_true", help="Use dispatch action")
-    parser.add_argument("--dispatch-strategy", type=str, default="PROPORTIONAL", help="Dispatch strategy")
-
-    # Training parameters
-    parser.add_argument("--n-timesteps", type=int, default=100000, help="Number of timesteps to train")
-    parser.add_argument("--eval-freq", type=int, default=10000, help="Evaluate every n steps")
-    parser.add_argument("--eval-episodes", type=int, default=5, help="Number of episodes for evaluation")
-    parser.add_argument("--save-freq", type=int, default=10000, help="Save checkpoint every n steps")
-    parser.add_argument("--log-folder", type=str, default="logs", help="Log folder")
-    parser.add_argument("--seed", type=int, default=0, help="Random seed")
-    parser.add_argument("--device", type=str, default="auto", help="Device (cpu, cuda, ...)")
-
-    args = parser.parse_args()
-
-    # Train MOSAC
-    model = train_mosac(args)
+    train_mosac()
