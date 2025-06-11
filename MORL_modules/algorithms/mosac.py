@@ -13,6 +13,7 @@ from stable_baselines3.common.torch_layers import create_mlp
 from stable_baselines3.common.type_aliases import GymEnv, Schedule, TensorDict, RolloutReturn
 from stable_baselines3.common.vec_env import VecEnv
 from stable_baselines3.common.utils import polyak_update, should_collect_more_steps
+from stable_baselines3.common.torch_layers import FlattenExtractor
 
 def register_mosac():
     from rl_zoo3 import ALGOS
@@ -32,6 +33,17 @@ class MOContinuousCritic(ContinuousCritic):
             activation_fn: Type[th.nn.Module] = th.nn.ReLU, normalize_images: bool = True,
             share_features_across_objectives: bool = True):
 
+        if features_extractor_class is None:
+            features_extractor_class = FlattenExtractor
+        features_extractor = features_extractor_class(observation_space, **( features_extractor_kwargs or {}))
+        super(ContinuousCritic, self).__init__(
+            observation_space,
+            action_space,
+            features_extractor_class,
+            features_extractor_kwargs,
+            normalize_images=normalize_images)
+
+        """
         super(ContinuousCritic, self).__init__(
             observation_space,
             action_space,
@@ -39,7 +51,7 @@ class MOContinuousCritic(ContinuousCritic):
             features_extractor_kwargs,
             normalize_images=normalize_images,
         )
-
+        """
         self.num_objectives = num_objectives
         self.share_features_extractor = share_features_extractor
         self.share_features_across_objectives = share_features_across_objectives
@@ -162,7 +174,6 @@ class MOContinuousCritic(ContinuousCritic):
 
         return scalarized_q_values
 
-
 class MOReplayBuffer(ReplayBuffer):
     """
     Extended replay buffer that stores vector rewards for multi-objective RL.
@@ -240,82 +251,23 @@ class MOReplayBuffer(ReplayBuffer):
         """Get samples from the buffer, handling vector rewards."""
         # Get the standard samples
         data = super()._get_samples(batch_inds, env)
-
+        breakpoint()
         # Ensure rewards are properly shaped vectors
         if self.rewards[batch_inds].ndim == 3:  # (batch, n_envs, n_objectives)
             # Squeeze out n_envs dimension if it's 1
             if self.rewards[batch_inds].shape[1] == 1:
-                data.rewards = self.to_torch(self.rewards[batch_inds].squeeze(1))
+                rewards_tensor = th.tensor(self.rewards[batch_inds].squeeze(), dtype=th.float32).to(self.device)
+                breakpoint()
             else:
-                data.rewards = self.to_torch(self.rewards[batch_inds])
+                rewards_tensor=  th.tensor(self.rewards[batch_inds], dtype=th.float32).to(self.device)
         else:
-            data.rewards = self.to_torch(self.rewards[batch_inds])
+            rewards_tensor =  th.tensor(self.rewards[batch_inds], dtype=th.float32).to(self.device)
 
-        return data
-
-
-class MOReplayBuffer(ReplayBuffer):
-    """
-    Extended replay buffer that stores vector rewards for multi-objective RL.
-    """
-    def __init__(
-            self,
-            buffer_size: int,
-            observation_space: spaces.Space,
-            action_space: spaces.Space,
-            num_objectives: int = 4,
-            device: Union[th.device, str] = "auto",
-            n_envs: int = 1,
-            optimize_memory_usage: bool = False,
-            handle_timeout_termination: bool = True,
-    ):
-        """Initialize multi-objective replay buffer."""
-        super().__init__(
-            buffer_size,
-            observation_space,
-            action_space,
-            device,
-            n_envs=n_envs,
-            optimize_memory_usage=optimize_memory_usage,
-            handle_timeout_termination=handle_timeout_termination,
-        )
-
-        self.num_objectives = num_objectives
-
-        # Modify rewards buffer to store vectors instead of scalars
-        # Shape becomes (buffer_size, n_envs, num_objectives)
-        self.rewards = np.zeros((self.buffer_size, self.n_envs, self.num_objectives), dtype=np.float32)
-
-    def add(
-            self,
-            obs: np.ndarray,
-            next_obs: np.ndarray,
-            action: np.ndarray,
-            reward: np.ndarray,
-            done: np.ndarray,
-            infos: List[Dict[str, Any]],
-    ) -> None:
-        """Add a new transition to the buffer with vector reward."""
-        # Reshape rewards if needed to ensure correct shape
-        if reward.ndim == 1:
-            reward = reward.reshape(-1, self.num_objectives)
-
-        # Validate reward shape
-        assert reward.shape[1] == self.num_objectives, f"Expected reward with {self.num_objectives} objectives, got {reward.shape[1]}"
-
-        # Call parent method but handle reward differently
-        super().add(obs, next_obs, action, reward, done, infos)
-
-    def sample(self, batch_size: int, env: Optional[GymEnv] = None) -> TensorDict:
-        """Sample a batch of transitions with vector rewards."""
-        # Sample indices
-        upper_bound = self.buffer_size if self.full else self.pos
-        batch_inds = np.random.randint(0, upper_bound, size=batch_size)
-
-        # Sample using parent implementation but preserve reward vectors
-        data = self._get_samples(batch_inds, env=env)
-        return data
-
+        return ReplayBufferSamples( observations=data.observations,
+                                    actions=data.actions,
+                                    next_observations=data.next_observations,
+                                    rewards=rewards_tensor,
+                                    dones=data.dones)
 
 class MOSAC(SAC):
     """
@@ -323,7 +275,6 @@ class MOSAC(SAC):
     """
 
     def __init__(self, *args, **kwargs):
-        # Extract MOSAC-specific arguments
         self.num_objectives = kwargs.pop('num_objectives', 4)
         preference_weights = kwargs.pop('preference_weights', None)
         self.hypervolume_ref_point = kwargs.pop('hypervolume_ref_point', None)
