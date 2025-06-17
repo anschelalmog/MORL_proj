@@ -12,8 +12,8 @@ from stable_baselines3.common.monitor import Monitor
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 
-from MORL_modules.algorithms.mosac import MOSAC, register_mosac
-from MORL_modules.wrappers.MOwrapper import MOEnergyNetWrapper
+from algorithms.mosac import MOSAC, register_mosac
+from wrappers.MOwrapper import MOEnergyNetWrapper
 
 # Import energy_net environment
 import energy_net.env.register_envs

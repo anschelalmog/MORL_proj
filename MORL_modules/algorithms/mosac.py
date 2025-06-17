@@ -174,7 +174,6 @@ class MOContinuousCritic(ContinuousCritic):
             # Stack objective values for easier computation
             # Shape: (batch_size, num_objectives)
             stacked_q_values = th.cat([q_val for q_val in critic_values], dim=1)
-
             # Compute weighted sum along objective dimension
             # Shape: (batch_size, 1)
             scalarized = th.sum(stacked_q_values * preference_weights, dim=1, keepdim=True)
@@ -341,13 +340,12 @@ class MOReplayBuffer(ReplayBuffer):
         """Get samples from the buffer, handling vector rewards."""
         # Get the standard samples
         data = super()._get_samples(batch_inds, env)
-        breakpoint()
         # Ensure rewards are properly shaped vectors
         if self.rewards[batch_inds].ndim == 3:  # (batch, n_envs, n_objectives)
             # Squeeze out n_envs dimension if it's 1
             if self.rewards[batch_inds].shape[1] == 1:
                 rewards_tensor = th.tensor(self.rewards[batch_inds].squeeze(), dtype=th.float32).to(self.device)
-                breakpoint()
+
             else:
                 rewards_tensor=  th.tensor(self.rewards[batch_inds], dtype=th.float32).to(self.device)
         else:
@@ -450,6 +448,7 @@ class MOSAC(SAC):
                 # Compute the next Q values: min over all critics targets
                 next_q_values = th.cat(self.critic_target(replay_data.next_observations, next_actions), dim=1)
                 next_q_values, _ = th.min(next_q_values, dim=1, keepdim=True)
+                breakpoint()
                 # add entropy term
                 next_q_values = next_q_values - ent_coef * next_log_prob.reshape(-1, 1)
 
@@ -536,3 +535,5 @@ class MOSAC(SAC):
         # Save the unnormalized observation
         if self._vec_normalize_env is not None:
             self._last_original_obs = new_obs_
+
+
