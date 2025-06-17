@@ -18,6 +18,7 @@ import pdb
 from stable_baselines3.common.type_aliases import GymEnv, Schedule, TensorDict, RolloutReturn
 from stable_baselines3.common.vec_env import VecEnv
 from stable_baselines3.common.utils import polyak_update, should_collect_more_steps
+from stable_baselines3.common.torch_layers import FlattenExtractor
 
 def register_mosac():
     from rl_zoo3 import ALGOS
@@ -55,11 +56,11 @@ class MOContinuousCritic(ContinuousCritic):
             n_critics=n_critics,
             features_extractor= features_extractor,
             features_dim = features_extractor.features_dim
-
         )
 
         self.features_extractor = features_extractor
         self.features_dim = self.features_extractor.features_dim
+
         self.num_objectives = num_objectives
         self.share_features_extractor = share_features_extractor
         self.share_features_across_objectives = share_features_across_objectives
@@ -263,6 +264,7 @@ class MOSACPolicy(SACPolicy):
         return MOContinuousCritic(**critic_kwargs).to(self.device)
 
 
+
 class MOReplayBuffer(ReplayBuffer):
     """
     Extended replay buffer that stores vector rewards for multi-objective RL.
@@ -341,7 +343,7 @@ class MOReplayBuffer(ReplayBuffer):
         # Get the standard samples
         data = super()._get_samples(batch_inds, env)
         # Ensure rewards are properly shaped vectors
-        if self.rewards[batch_inds].ndim == 3:  # (batch, n_envs, n_objectives)
+        if self.rewards[batch_inds].ndim == 3 :  # (batch, n_envs, n_objectives)
             # Squeeze out n_envs dimension if it's 1
             if self.rewards[batch_inds].shape[1] == 1:
                 rewards_tensor = th.tensor(self.rewards[batch_inds].squeeze(), dtype=th.float32).to(self.device)
@@ -350,6 +352,7 @@ class MOReplayBuffer(ReplayBuffer):
                 rewards_tensor=  th.tensor(self.rewards[batch_inds], dtype=th.float32).to(self.device)
         else:
             rewards_tensor =  th.tensor(self.rewards[batch_inds], dtype=th.float32).to(self.device)
+
 
         return ReplayBufferSamples( observations=data.observations,
                                     actions=data.actions,
@@ -367,7 +370,6 @@ class MOSAC(SAC):
     """
 
     def __init__(self, *args, **kwargs):
-        # Extract MOSAC-specific arguments
         self.num_objectives = kwargs.pop('num_objectives', 4)
         preference_weights = kwargs.pop('preference_weights', None)
         self.hypervolume_ref_point = kwargs.pop('hypervolume_ref_point', None)
