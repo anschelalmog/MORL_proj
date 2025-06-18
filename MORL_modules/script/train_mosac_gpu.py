@@ -4,12 +4,19 @@ import gymnasium as gym
 from gymnasium import spaces
 import torch as th
 import os
+import sys
 from stable_baselines3 import SAC
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.monitor import Monitor
-from energy_net.envs.energy_net_v0 import EnergyNetV0
+
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+
+from algorithms.mosac import MOSAC, register_mosac
 from wrappers.MOwrapper import MOEnergyNetWrapper
+
+
 # Simple Multi-Objective Environment (Mock PCS Environment)
 class MockPCSEnv(gym.Env):
     """Simplified mock PCS environment with 4 objectives"""
@@ -169,27 +176,28 @@ def train_mosac_experiment(preference_weights, name, n_timesteps=50000):
     
     print(f"\n=== Training {name} ===")
     print(f"Preference weights: {preference_weights}")
-    
-    # Create environment
-    env = MOEnergyNetWrapper()
-    env = MOWrapper(env, preference_weights)
+
+    env = MockPCSEnv()
+    env = MOEnergyNetWrapper(env)
+    #env = MOWrapper(env, preference_weights)
     env = Monitor(env)
-    env = DummyVecEnv([lambda: env])
+    # env = DummyVecEnv([lambda: env])
     
     # Create callback
     callback = MOCallback(preference_name=name)
-    
-    model = SAC(
+
+    model = MOSAC(
         "MlpPolicy",
         env,
         learning_rate=3e-4,
         batch_size=64,
         gamma=0.99,
         verbose=1,
-        device="cuda"
+        device="cuda",
+        num_objectives=4,
+        preference_weights=preference_weights
     )
-    
-    model.learn(total_timesteps=n_timesteps, callback=callback)
+    model.learn(total_timesteps=1, callback=callback)
     
     return model, callback.mo_rewards_log
 

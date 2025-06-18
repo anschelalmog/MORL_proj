@@ -372,7 +372,7 @@ class MOSAC(SAC):
     def __init__(self, *args, **kwargs):
         self.num_objectives = kwargs.pop('num_objectives', 4)
         preference_weights = kwargs.pop('preference_weights', None)
-        self.hypervolume_ref_point = kwargs.pop('hypervolume_ref_point', None)
+        #self.hypervolume_ref_point = kwargs.pop('hypervolume_ref_point', None)
 
         # Set up preference weights
         if preference_weights is None:
