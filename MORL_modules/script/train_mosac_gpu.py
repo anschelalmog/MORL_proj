@@ -9,7 +9,7 @@ from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.monitor import Monitor
 from energy_net.envs.energy_net_v0 import EnergyNetV0
-from MORL_modules.wrappers.MOwrapper import MOEnergyNetWrapper
+from wrappers.MOwrapper import MOEnergyNetWrapper
 # Simple Multi-Objective Environment (Mock PCS Environment)
 class MockPCSEnv(gym.Env):
     """Simplified mock PCS environment with 4 objectives"""
