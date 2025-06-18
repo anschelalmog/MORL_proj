@@ -4,19 +4,10 @@ import gymnasium as gym
 from gymnasium import spaces
 import torch as th
 import os
-import sys
 from stable_baselines3 import SAC
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.monitor import Monitor
-
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-
-from energy_net.envs.energy_net_v0 import EnergyNetV0
-from algorithms.mosac import MOSAC, register_mosac
-from wrappers.MOwrapper import MOEnergyNetWrapper
-
 
 # Simple Multi-Objective Environment (Mock PCS Environment)
 class MockPCSEnv(gym.Env):
@@ -159,7 +150,7 @@ class MOCallback(BaseCallback):
         self.preference_name = preference_name
         self.mo_rewards_log = []
         
-    def _on_step(self):
+    def _on_step(self) -> bool:
         info = self.locals.get('infos', [{}])[0]
         if 'episode' in info and 'total_mo_rewards' in info['episode']:
             mo_rewards = info['episode']['total_mo_rewards']
@@ -177,33 +168,28 @@ def train_mosac_experiment(preference_weights, name, n_timesteps=50000):
     
     print(f"\n=== Training {name} ===")
     print(f"Preference weights: {preference_weights}")
-
-    # env = MockPCSEnv()
-    print("going to created environment: EnergyNetV0")
-    breakpoint()
-    env = EnergyNetV0
-    print("created environment: EnergyNetV0")
-    os.wait()
-    env = MOEnergyNetWrapper(env)
-    #env = MOWrapper(env, preference_weights)
+    
+    # Create environment
+    env = MockPCSEnv()
+    env = MOWrapper(env, preference_weights)
     env = Monitor(env)
-    # env = DummyVecEnv([lambda: env])
+    env = DummyVecEnv([lambda: env])
     
     # Create callback
     callback = MOCallback(preference_name=name)
-
-    model = MOSAC(
+    
+    # Train SAC (as proxy for MOSAC)
+    model = SAC(
         "MlpPolicy",
         env,
         learning_rate=3e-4,
         batch_size=64,
         gamma=0.99,
         verbose=1,
-        device="cuda",
-        num_objectives=4,
-        preference_weights=preference_weights
+        device="cuda"
     )
-    model.learn(total_timesteps=1, callback=callback)
+    
+    model.learn(total_timesteps=n_timesteps, callback=callback)
     
     return model, callback.mo_rewards_log
 
@@ -252,7 +238,7 @@ def plot_results(results_balanced, results_economic):
 
 if __name__ == "__main__":
     # Training parameters
-    n_timesteps = 100000
+    n_timesteps = 100000  # Reduced for faster testing
     
     # Experiment 1: Balanced preferences
     model1, results1 = train_mosac_experiment(
