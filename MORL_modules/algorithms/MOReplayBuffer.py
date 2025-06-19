@@ -25,7 +25,7 @@ class MOReplayBuffer(ReplayBuffer):
         )
 
         self.num_objectives = num_objectives
-
+        
         # Modify rewards buffer to store vectors instead of scalars
         # Shape becomes (buffer_size, n_envs, num_objectives)
         self.rewards = np.zeros((self.buffer_size, self.n_envs, self.num_objectives), dtype=np.float32)
