@@ -84,13 +84,15 @@ class MOPCSWrapper(gym.Wrapper):
             if hasattr(self.env, 'unwrapped') and hasattr(self.env.unwrapped, 'controller'):
                 self.controller = self.env.unwrapped.controller
 
-                # Get PCS unit
-                if hasattr(self.controller, 'pcsunit'):
+                # Get PCS unit - try both pcs_unit and pcsunit
+                if hasattr(self.controller, 'pcs_unit'):
+                    self.pcsunit = self.controller.pcs_unit
+                elif hasattr(self.controller, 'pcsunit'):
                     self.pcsunit = self.controller.pcsunit
 
-                    # Get battery from PCS unit
-                    if hasattr(self.pcsunit, 'battery'):
-                        self.battery = self.pcsunit.battery
+                # Get battery from PCS unit
+                if self.pcsunit and hasattr(self.pcsunit, 'battery'):
+                    self.battery = self.pcsunit.battery
 
                 # Get battery manager
                 if hasattr(self.controller, 'battery_manager'):
@@ -107,18 +109,20 @@ class MOPCSWrapper(gym.Wrapper):
     def _get_battery_level(self) -> Optional[float]:
         """Get current battery level from various possible sources."""
         try:
+            # Check if controller exists first
+            if self.controller is None:
+                return None
+
             # Try battery manager first (most reliable)
             if self.battery_manager is not None:
                 return self.battery_manager.get_level()
 
-            # Try battery directly
             if self.battery is not None:
                 if hasattr(self.battery, 'get_state'):
                     return self.battery.get_state()
                 elif hasattr(self.battery, 'energy_level'):
                     return self.battery.energy_level
 
-            # Try from controller
             if self.controller is not None and hasattr(self.controller, 'get_battery_level'):
                 return self.controller.get_battery_level()
 
@@ -153,15 +157,21 @@ class MOPCSWrapper(gym.Wrapper):
 
         return production, consumption
 
-    def _compute_economic_reward(self, base_reward: float, info: Dict) -> float:
+    def _compute_economic_reward(self, base_reward, info: Dict) -> float:
         """Compute economic objective reward."""
-        # Base reward is typically the economic reward from the environment
-        economic_reward = base_reward
-
-        # Could add additional economic factors here
-        # e.g., penalty for peak demand charges, time-of-use optimization
-
-        return economic_reward
+        # Handle different reward formats from the environment
+        if isinstance(base_reward, dict):
+            # Environment returns dict with iso/pcs rewards
+            return base_reward.get('pcs', 0.0)  # Use PCS reward for economic objective
+        elif isinstance(base_reward, (tuple, list)) and len(base_reward) > 1:
+            # Environment returns tuple (iso_reward, pcs_reward)
+            return base_reward[1]  # Use PCS reward
+        elif isinstance(base_reward, (tuple, list)) and len(base_reward) == 1:
+            # Single element tuple/list
+            return base_reward[0]
+        else:
+            # Single scalar reward
+            return float(base_reward)
 
     def _compute_battery_health_reward(self, info: Dict) -> float:
         """Compute battery health objective reward."""
@@ -264,6 +274,11 @@ class MOPCSWrapper(gym.Wrapper):
 
     def _normalize_reward(self, reward: float, objective: str) -> float:
         """Normalize reward to standard range if enabled."""
+        if isinstance(reward, dict):
+            reward = reward.get('pcs', 0.0)  # Default to PCS reward
+
+            # Convert to float
+        reward = float(reward)
         if not self.normalize_rewards:
             return reward
 
@@ -281,10 +296,12 @@ class MOPCSWrapper(gym.Wrapper):
         # Re-extract environment components (they might have changed)
         self._get_environment_components()
 
-        # Reset episode tracking
-        if self.episode_count > 0:  # Don't save metrics from incomplete episodes
-            for i, obj_name in enumerate(['economic', 'battery_health', 'grid_support', 'autonomy']):
-                self.episode_rewards[obj_name].append(self.current_episode_rewards[i])
+        # Reset episode tracking with bounds checking
+        if self.episode_count > 0 and len(self.current_episode_rewards) == self.num_objectives:
+            obj_names = ['economic', 'battery_health', 'grid_support', 'autonomy']
+            for i, obj_name in enumerate(obj_names):
+                if i < len(self.current_episode_rewards):
+                    self.episode_rewards[obj_name].append(self.current_episode_rewards[i])
 
         self.current_episode_rewards = np.zeros(self.num_objectives)
         self.step_count = 0
@@ -300,6 +317,12 @@ class MOPCSWrapper(gym.Wrapper):
     def step(self, action):
         """Step environment and compute multi-objective rewards."""
         observation, reward, terminated, truncated, info = self.env.step(action)
+
+        # Handle multi-agent termination/truncation flags
+        if isinstance(terminated, dict):
+            terminated = any(terminated.values()) if terminated else False
+        if isinstance(truncated, dict):
+            truncated = any(truncated.values()) if truncated else False
 
         # Compute multi-objective rewards
         mo_rewards = np.zeros(self.num_objectives)

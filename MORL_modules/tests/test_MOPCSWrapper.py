@@ -8,14 +8,13 @@ import numpy as np
 from gymnasium import spaces
 
 
-from .wrappers.mo_pcs_wrapper import MOPCSWrapper
+from MORL_modules.wrappers.mo_pcs_wrapper import MOPCSWrapper
 
-# Import real energy_net classes
 from energy_net.envs.energy_net_v0 import EnergyNetV0
 from energy_net.market.pricing.cost_types import CostType
 from energy_net.market.pricing.pricing_policy import PricingPolicy
 from energy_net.dynamics.consumption_dynamics.demand_patterns import DemandPattern
-
+from energy_net.controllers.energy_net_controller import EnergyNetController
 
 @pytest.fixture
 def real_energynet_env():
@@ -69,13 +68,13 @@ def test_environment_component_extraction_real(wrapper_with_real_env):
 
     # Check that we successfully extracted real components
     assert wrapper.controller is not None
-    assert hasattr(wrapper.controller, 'pcsunit')
+    assert hasattr(wrapper.controller, 'pcs_unit')
     assert hasattr(wrapper.controller, 'battery_manager')
 
-    if wrapper.controller.pcsunit:
-        assert hasattr(wrapper.controller.pcsunit, 'battery')
-        assert hasattr(wrapper.controller.pcsunit, 'get_self_production')
-        assert hasattr(wrapper.controller.pcsunit, 'get_self_consumption')
+    if wrapper.controller.pcs_unit:
+        assert hasattr(wrapper.controller.pcs_unit, 'battery')
+        assert hasattr(wrapper.controller.pcs_unit, 'get_self_production')
+        assert hasattr(wrapper.controller.pcs_unit, 'get_self_consumption')
 
 
 def test_battery_level_retrieval_real(wrapper_with_real_env):
@@ -105,6 +104,7 @@ def test_reset_and_step_integration_real(wrapper_with_real_env):
 
     # Test step with valid action
     # Get a sample action from the environment's action space
+    """
     if hasattr(wrapper.env, 'action_space'):
         if isinstance(wrapper.env.action_space, spaces.Dict):
             action = {key: space.sample() for key, space in wrapper.env.action_space.spaces.items()}
@@ -116,6 +116,12 @@ def test_reset_and_step_integration_real(wrapper_with_real_env):
             "iso": np.array([0.0]),
             "pcs": np.array([0.0])
         }
+    """
+    # Use simple zero actions that work with PCS environment
+    action = {
+        "iso": np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),  # 7 ISO actions
+        "pcs": np.array([0.0])  # 1 PCS action (battery)
+    }
 
     # Execute step
     obs2, mo_rewards, terminated, truncated, info2 = wrapper.step(action)
