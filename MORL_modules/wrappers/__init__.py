@@ -1,3 +1,4 @@
-from .MOwrapper import MOEnergyNetWrapper
+from mo_pcs_wrapper import MOPCSWrapper
+from scalarized_mo_pcs_wrapper import ScalarizedMOPCSWrapper
 
-__all__ = ["MOEnergyNetWrapper"]
+__all__ = ["MOPCSWrapper", "ScalarizedMOPCSWrapper"]
