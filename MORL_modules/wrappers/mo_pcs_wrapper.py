@@ -34,7 +34,7 @@ class MOPCSWrapper(gym.Wrapper):
         """
         super().__init__(env)
         self.num_objectives = num_objectives
-        self.reward_weights = reward_weights or np.ones(num_objectives) / num_objectives
+        self.reward_weights = reward_weights if reward_weights is not None else np.ones(num_objectives) / num_objectives
         self.normalize_rewards = normalize_rewards
 
         # Setup logging
@@ -369,53 +369,6 @@ class MOPCSWrapper(gym.Wrapper):
                 }
 
         return stats
-
-    def plot_objective_progress(self, save_path: Optional[str] = None):
-        """Plot the progress of each objective over episodes."""
-        if not self.episode_rewards or not any(self.episode_rewards.values()):
-            self.logger.warning("No episode data available for plotting")
-            return
-
-        fig, axes = plt.subplots(2, 2, figsize=(12, 10))
-        axes = axes.flatten()
-
-        objective_names = ['Economic', 'Battery Health', 'Grid Support', 'Energy Autonomy']
-        objective_keys = ['economic', 'battery_health', 'grid_support', 'autonomy']
-
-        for i, (name, key) in enumerate(zip(objective_names, objective_keys)):
-            if key in self.episode_rewards and self.episode_rewards[key]:
-                episodes = range(1, len(self.episode_rewards[key]) + 1)
-                rewards = self.episode_rewards[key]
-
-                axes[i].plot(episodes, rewards, 'b-', alpha=0.7, linewidth=1)
-
-                # Add moving average
-                if len(rewards) >= 10:
-                    window_size = min(10, len(rewards) // 3)
-                    moving_avg = np.convolve(rewards, np.ones(window_size) / window_size, mode='valid')
-                    avg_episodes = range(window_size, len(rewards) + 1)
-                    axes[i].plot(avg_episodes, moving_avg, 'r-', linewidth=2,
-                                 label=f'{window_size}-episode MA')
-                    axes[i].legend()
-
-                axes[i].set_title(f'{name} Objective')
-                axes[i].set_xlabel('Episode')
-                axes[i].set_ylabel('Cumulative Reward')
-                axes[i].grid(True, alpha=0.3)
-            else:
-                axes[i].text(0.5, 0.5, f'No data for\n{name}',
-                             ha='center', va='center', transform=axes[i].transAxes)
-                axes[i].set_title(f'{name} Objective')
-
-        plt.tight_layout()
-
-        if save_path:
-            plt.savefig(save_path, dpi=300, bbox_inches='tight')
-            self.logger.info(f"Objective progress plot saved to {save_path}")
-
-        plt.show()
-
-        return fig
 
     def get_pareto_front_data(self) -> Dict[str, List[float]]:
         """Get data for Pareto front analysis."""

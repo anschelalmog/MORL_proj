@@ -1,8 +1,0 @@
-export PATH="$HOME/.pyenv/bin:$PATH"
-eval "$(pyenv init -)"
-eval "$(pyenv virtualenv-init -)"
-source ~/.bashrc
-cd ~/MORL_proj
-pyenv virtualenv 3.11.8 venv
-pyenv global venv
-python --version
