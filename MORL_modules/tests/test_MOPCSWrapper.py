@@ -232,14 +232,9 @@ def test_episode_statistics_real(wrapper_with_real_env):
         except Exception as e:
             pytest.skip(f"Step failed with real environment: {e}")
 
-    # Start new episode to trigger statistics recording
     wrapper.reset()
-
-    # Get statistics
     stats = wrapper.get_episode_statistics()
-
-    # Should have some recorded episodes
-    if stats:  # If any episodes were completed
+    if stats:
         for obj_name in ['economic', 'battery_health', 'grid_support', 'autonomy']:
             if obj_name in stats:
                 assert 'mean' in stats[obj_name]

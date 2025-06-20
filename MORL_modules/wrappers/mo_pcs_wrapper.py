@@ -75,60 +75,55 @@ class MOPCSWrapper(gym.Wrapper):
         self.grid_demand_history = []
         self.price_history = []
 
+        self._validate_environment_structure()
+
         self.logger.info(f"Initialized MOEnergyNetWrapper with {num_objectives} objectives")
 
-    def _get_environment_components(self):
-        """Safely extract components from the environment."""
+    def _validate_environment_structure(self):
         try:
-            # Try to get controller
-            if hasattr(self.env, 'unwrapped') and hasattr(self.env.unwrapped, 'controller'):
-                self.controller = self.env.unwrapped.controller
+            assert hasattr(self.env, 'unwrapped'), "Environment missing unwrapped attribute"
+            assert hasattr(self.env.unwrapped, 'controller'), "Environment missing controller"
 
-                # Get PCS unit - try both pcs_unit and pcsunit
-                if hasattr(self.controller, 'pcs_unit'):
-                    self.pcsunit = self.controller.pcs_unit
-                elif hasattr(self.controller, 'pcsunit'):
-                    self.pcsunit = self.controller.pcsunit
+            controller = self.env.unwrapped.controller
+            assert hasattr(controller, 'battery_manager'), "Controller missing battery_manager"
+            assert hasattr(controller, 'pcs_unit'), "Controller missing pcs_unit"
+            assert hasattr(controller.pcs_unit, 'battery'), "PCS Unit missing battery"
+            assert hasattr(controller.pcs_unit, 'get_self_production'), "PCS Unit missing get_self_production"
+            assert hasattr(controller.pcs_unit, 'get_self_consumption'), "PCS Unit missing get_self_consumption"
+            assert hasattr(controller.battery_manager, 'get_level'), "Battery Manager missing get_level"
 
-                # Get battery from PCS unit
-                if self.pcsunit and hasattr(self.pcsunit, 'battery'):
-                    self.battery = self.pcsunit.battery
+            self.logger.info("Environment structure validation passed")
 
-                # Get battery manager
-                if hasattr(self.controller, 'battery_manager'):
-                    self.battery_manager = self.controller.battery_manager
+        except (AttributeError, AssertionError) as e:
+            raise RuntimeError(f"Environment structure validation failed: {e}")
 
-            self.logger.debug(f"Components found - Controller: {self.controller is not None}, "
-                              f"PCSUnit: {self.pcsunit is not None}, "
-                              f"Battery: {self.battery is not None}, "
-                              f"BatteryManager: {self.battery_manager is not None}")
+    def _get_environment_components(self):
+        """Extract and cache components from environment (they're always available)."""
+        if hasattr(self.env, 'unwrapped') and hasattr(self.env.unwrapped, 'controller'):
+            self.controller = self.env.unwrapped.controller
+            self.battery_manager = self.controller.battery_manager
+            self.pcsunit = self.controller.pcs_unit
+            self.battery = self.pcsunit.battery
 
-        except Exception as e:
-            self.logger.warning(f"Could not extract all environment components: {e}")
+            # Validation assertions (non-fatal warnings)
+            assert self.controller is not None, "Controller should always be available"
+            assert self.battery_manager is not None, "Battery Manager should always be available"
+            assert self.pcsunit is not None, "PCS Unit should always be available"
+            assert self.battery is not None, "Battery should always be available"
+
+            self.logger.info("All components successfully cached")
+        else:
+            raise RuntimeError("Environment structure is unexpected - missing controller")
 
     def _get_battery_level(self) -> Optional[float]:
-        """Get current battery level from various possible sources."""
-        try:
-            # Check if controller exists first
-            if self.controller is None:
-                return None
-
-            # Try battery manager first (most reliable)
-            if self.battery_manager is not None:
-                return self.battery_manager.get_level()
-
-            if self.battery is not None:
-                if hasattr(self.battery, 'get_state'):
-                    return self.battery.get_state()
-                elif hasattr(self.battery, 'energy_level'):
-                    return self.battery.energy_level
-
-            if self.controller is not None and hasattr(self.controller, 'get_battery_level'):
-                return self.controller.get_battery_level()
-
+        """Get current battery level - battery_manager.get_level() is always available."""
+        if self.controller is None or self.battery_manager is None:
             return None
+
+        try:
+            return self.battery_manager.get_level()
         except Exception as e:
-            self.logger.debug(f"Error getting battery level: {e}")
+            self.logger.warning(f"Unexpected error getting battery level: {e}")
             return None
 
     def _get_energy_exchange(self, info: Dict) -> Optional[float]:
@@ -143,19 +138,18 @@ class MOPCSWrapper(gym.Wrapper):
         return None
 
     def _get_production_consumption(self) -> Tuple[Optional[float], Optional[float]]:
-        """Get production and consumption values."""
-        production, consumption = None, None
+        """Get production and consumption - pcsunit methods are always available."""
+        if self.pcsunit is None:
+            return None, None
 
         try:
-            if self.pcsunit is not None:
-                if hasattr(self.pcsunit, 'get_self_production'):
-                    production = self.pcsunit.get_self_production()
-                if hasattr(self.pcsunit, 'get_self_consumption'):
-                    consumption = self.pcsunit.get_self_consumption()
-        except Exception as e:
-            self.logger.debug(f"Error getting production/consumption: {e}")
+            production = self.pcsunit.get_self_production()  # Always works
+            consumption = self.pcsunit.get_self_consumption()  # Always works
+            return production, consumption
 
-        return production, consumption
+        except Exception as e:
+            self.logger.warning(f"Unexpected error getting production/consumption: {e}")
+            return None, None
 
     def _compute_economic_reward(self, base_reward, info: Dict) -> float:
         """Compute economic objective reward."""
