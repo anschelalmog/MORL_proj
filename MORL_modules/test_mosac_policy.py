@@ -6,7 +6,7 @@ from stable_baselines3.common.utils import get_device
 from stable_baselines3.common.preprocessing import preprocess_obs
 
 from algorithms.mosac import MOSAC, MOSACPolicy
-
+from agents.mosac import MOSACPolicy
 @pytest.fixture
 def dummy_env():
     return gym.make("Pendulum-v1")  # A continuous control env suitable for SAC
