@@ -119,8 +119,8 @@ def test_reset_and_step_integration_real(wrapper_with_real_env):
     """
     # Use simple zero actions that work with PCS environment
     action = {
-        "iso": np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),  # 7 ISO actions
-        "pcs": np.array([0.0])  # 1 PCS action (battery)
+        "iso": np.zeros(7, dtype=np.float32),
+        "pcs": np.zeros(1, dtype=np.float32)
     }
 
     # Execute step
@@ -226,7 +226,7 @@ def test_episode_statistics_real(wrapper_with_real_env):
 
     # Take a few steps
     for _ in range(3):
-        action = {"iso": np.array([0.0]), "pcs": np.array([0.0])}
+        action = {"iso": np.zeros(7, dtype=np.float32), "pcs": np.zeros(1, dtype=np.float32)}
         try:
             wrapper.step(action)
         except Exception as e:
@@ -278,7 +278,7 @@ def test_pareto_front_data_real(wrapper_with_real_env):
 
         # Take a few steps
         for step in range(2):
-            action = {"iso": np.array([0.0]), "pcs": np.array([0.0])}
+            action = {"iso": np.zeros(7, dtype=np.float32), "pcs": np.zeros(1, dtype=np.float32)}
             try:
                 wrapper.step(action)
             except Exception as e:
@@ -316,7 +316,7 @@ def test_normalization_modes_real(real_energynet_env, normalize_rewards):
 
     # Test a single step
     wrapper.reset()
-    action = {"iso": np.array([0.0]), "pcs": np.array([0.0])}
+    action = {"iso": np.zeros(7, dtype=np.float32), "pcs": np.zeros(1, dtype=np.float32)}
 
     try:
         obs, mo_rewards, terminated, truncated, info = wrapper.step(action)

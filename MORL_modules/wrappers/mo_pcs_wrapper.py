@@ -98,14 +98,12 @@ class MOPCSWrapper(gym.Wrapper):
             raise RuntimeError(f"Environment structure validation failed: {e}")
 
     def _get_environment_components(self):
-        """Extract and cache components from environment (they're always available)."""
         if hasattr(self.env, 'unwrapped') and hasattr(self.env.unwrapped, 'controller'):
             self.controller = self.env.unwrapped.controller
             self.battery_manager = self.controller.battery_manager
             self.pcsunit = self.controller.pcs_unit
             self.battery = self.pcsunit.battery
 
-            # Validation assertions (non-fatal warnings)
             assert self.controller is not None, "Controller should always be available"
             assert self.battery_manager is not None, "Battery Manager should always be available"
             assert self.pcsunit is not None, "PCS Unit should always be available"
