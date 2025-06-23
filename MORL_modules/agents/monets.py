@@ -48,7 +48,6 @@ class SharedFeatureQNet(nn.Module):
         x = th.cat([obs, actions], dim=1)
         # Pass through the shared base network
         shared_features = self.base_net(x)
-        breakpoint()
         # Pass shared features through each head to get Q-values for each objective
         return [head(shared_features) for head in self.heads]
 

@@ -18,7 +18,7 @@ import pdb
 from stable_baselines3.common.type_aliases import GymEnv, Schedule, TensorDict, RolloutReturn
 from stable_baselines3.common.vec_env import VecEnv
 from stable_baselines3.common.utils import polyak_update, should_collect_more_steps
-from stable_baselines3.common.torch_layers import FlattenExtractor
+from stable_baselines3.common.torch_layers import FlattenExtractor ,BaseFeaturesExtractor
 
 def register_mosac():
     from rl_zoo3 import ALGOS
@@ -179,7 +179,7 @@ class MOContinuousCritic(ContinuousCritic):
             # Shape: (batch_size, 1)
             scalarized = th.sum(stacked_q_values * preference_weights, dim=1, keepdim=True)
             scalarized_q_values.append(scalarized)
-
+        # Return list of scalarized Q-values for each critic ensemble
         return scalarized_q_values
 
 
