@@ -91,30 +91,8 @@ class BaselineMORLConfig:
         "battery_only": [0.0, 1.0, 0.0, 0.0],
         "grid_only": [0.0, 0.0, 1.0, 0.0],
         "autonomy_only": [0.0, 0.0, 0.0, 1.0],
-
-        # Balanced approaches
         "balanced": [0.25, 0.25, 0.25, 0.25],
         "economic_balanced": [0.4, 0.2, 0.2, 0.2],
-        "battery_balanced": [0.2, 0.4, 0.2, 0.2],
-        "grid_balanced": [0.2, 0.2, 0.4, 0.2],
-        "autonomy_balanced": [0.2, 0.2, 0.2, 0.4],
-
-        # Focused strategies
-        "economic_focused": [0.5, 0.2, 0.15, 0.15],
-        "battery_focused": [0.15, 0.5, 0.2, 0.15],
-        "grid_focused": [0.15, 0.15, 0.5, 0.2],
-        "autonomy_focused": [0.15, 0.15, 0.2, 0.5],
-
-        # Practical combinations
-        "economic_battery": [0.6, 0.4, 0.0, 0.0],
-        "economic_grid": [0.6, 0.0, 0.4, 0.0],
-        "battery_grid": [0.0, 0.5, 0.5, 0.0],
-        "battery_autonomy": [0.0, 0.5, 0.0, 0.5],
-
-        # Conservative approaches (avoid extremes)
-        "conservative_economic": [0.4, 0.3, 0.2, 0.1],
-        "conservative_battery": [0.3, 0.4, 0.2, 0.1],
-        "conservative_balanced": [0.3, 0.3, 0.2, 0.2]
     }
 
     # Results and Logging Configuration
@@ -125,7 +103,7 @@ class BaselineMORLConfig:
         "figures_subdir": "figures",
         "data_subdir": "data",
         "save_formats": ["png", "pdf"],
-        "figure_dpi": 300,
+        "figure_dpi": 600,
         "figure_size": (12, 8)
     }
 
