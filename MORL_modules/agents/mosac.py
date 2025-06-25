@@ -26,6 +26,23 @@ from typing import ClassVar
 from stable_baselines3.sac.policies import Actor, CnnPolicy, MlpPolicy, MultiInputPolicy, SACPolicy
 from stable_baselines3.common.noise import ActionNoise
 
+from agents.mo_env_wrappers import MODummyVecEnv,  MultiObjectiveWrapper
+from stable_baselines3.common.preprocessing import check_for_nested_spaces, is_image_space, is_image_space_channels_first
+#for overriding  _wrap_env
+from stable_baselines3.common.vec_env.patch_gym import _patch_env
+from stable_baselines3.common.env_util import is_wrapped
+from stable_baselines3.common.monitor import Monitor
+from stable_baselines3.common.vec_env import (
+    DummyVecEnv,
+    VecEnv,
+    VecNormalize,
+    VecTransposeImage,
+    is_vecenv_wrapped,
+    unwrap_vec_normalize,
+)
+
+
+
 class MOContinuousCritic(ContinuousCritic):
     """
     Multi-objective critic network that extends SB3's ContinuousCritic.
@@ -192,8 +209,6 @@ class MOSACPolicy(SACPolicy):
             features_extractor_class = FlattenExtractor
 
 
-
-
         super().__init__(
             observation_space = observation_space,
             action_space = action_space,
@@ -303,6 +318,7 @@ class MOSAC(SAC):
         replay_buffer_kwargs = {} if replay_buffer_kwargs is None else replay_buffer_kwargs.copy()
         replay_buffer_kwargs['num_objectives'] = self.num_objectives
 
+
         super().__init__(
             policy=policy,
             env=env,
@@ -333,6 +349,8 @@ class MOSAC(SAC):
         )
 
 
+
+
     def _setup_model(self) -> None:
         """Setup model with multi-objective components."""
         # Set default replay buffer class if not specified
@@ -345,10 +363,57 @@ class MOSAC(SAC):
 
         self.preference_weights_tensor = th.FloatTensor(self.preference_weights).to(self.device)
 
+    @staticmethod
+    def _wrap_env(env: GymEnv, verbose: int = 0, monitor_wrapper: bool = True) -> VecEnv:
+        """ "
+        Wrap environment with the appropriate wrappers if needed.
+        For instance, to have a vectorized environment
+        or to re-order the image channels.
+
+        :param env:
+        :param verbose: Verbosity level: 0 for no output, 1 for indicating wrappers used
+        :param monitor_wrapper: Whether to wrap the env in a ``Monitor`` when possible.
+        :return: The wrapped environment.
+        """
+        if not isinstance(env, VecEnv):
+            # Patch to support gym 0.21/0.26 and gymnasium
+            env = _patch_env(env)
+
+            #if not is_wrapped(env, Monitor) and monitor_wrapper:
+            #    if verbose >= 1:
+            #        print("Wrapping the env with a `Monitor` wrapper")
+            #    env = Monitor(env)
+            if verbose >= 1:
+                print("Wrapping the env in a DummyVecEnv.")
+            env = MODummyVecEnv([lambda: env])  # type: ignore[list-item, return-value]
+        # Make sure that dict-spaces are not nested (not supported)
+        check_for_nested_spaces(env.observation_space)
+
+        if not is_vecenv_wrapped(env, VecTransposeImage):
+            wrap_with_vectranspose = False
+            if isinstance(env.observation_space, spaces.Dict):
+                # If even one of the keys is a image-space in need of transpose, apply transpose
+                # If the image spaces are not consistent (for instance one is channel first,
+                # the other channel last), VecTransposeImage will throw an error
+                for space in env.observation_space.spaces.values():
+                    wrap_with_vectranspose = wrap_with_vectranspose or (
+                        is_image_space(space) and not is_image_space_channels_first(space)  # type: ignore[arg-type]
+                    )
+            else:
+                wrap_with_vectranspose = is_image_space(env.observation_space) and not is_image_space_channels_first(
+                    env.observation_space  # type: ignore[arg-type]
+                )
+
+            if wrap_with_vectranspose:
+                if verbose >= 1:
+                    print("Wrapping the env in a VecTransposeImage.")
+                env = VecTransposeImage(env)
+        return env
+
     def train(self, gradient_steps: int, batch_size: int = 64) -> None:
         # Switch to train mode (this affects batch norm / dropout)
 
-        breakpoint()
+
         self.policy.set_training_mode(True)
         # Update optimizers learning rate
         optimizers = [self.actor.optimizer, self.critic.optimizer]
@@ -467,34 +532,34 @@ class MOSAC(SAC):
         if len(ent_coef_losses) > 0:
             self.logger.record("train/ent_coef_loss", np.mean(ent_coef_losses))
 
-    def _store_transition(
-            self,
-            replay_buffer: MOReplayBuffer,
-            buffer_action: np.ndarray,
-            new_obs: Union[np.ndarray, Dict[str, np.ndarray]],
-            reward: np.ndarray,  # Now vector reward
-            dones: np.ndarray,
-            infos: List[Dict[str, Any]],
-    ) -> None:
-        """Store transition in the replay buffer, handling vector rewards."""
-        # Store transition
-        # self._vec_normalize_env is none if vec normalization is not used
-        if self._vec_normalize_env is not None:
-            new_obs_ = self._vec_normalize_env.get_original_obs()
-            reward_ = self._vec_normalize_env.get_original_reward()
-        else:
-            new_obs_ = new_obs
-            reward_ = reward
+    #def _store_transition(
+    #        self,
+    #        replay_buffer: MOReplayBuffer,
+    #        buffer_action: np.ndarray,
+    #        new_obs: Union[np.ndarray, Dict[str, np.ndarray]],
+    #        reward: np.ndarray,  # Now vector reward
+    #        dones: np.ndarray,
+    #        infos: List[Dict[str, Any]],
+    #) -> None:
+    #    """Store transition in the replay buffer, handling vector rewards."""
+    #    # Store transition
+    #    # self._vec_normalize_env is none if vec normalization is not used
+    #    if self._vec_normalize_env is not None:
+    #        new_obs_ = self._vec_normalize_env.get_original_obs()
+    #        reward_ = self._vec_normalize_env.get_original_reward()
+    #    else:
+    #        new_obs_ = new_obs
+    #       reward_ = reward
 
-        replay_buffer.add(
-            self._last_original_obs,
-            new_obs_,
-            buffer_action,
-            reward_,  # Vector reward
-            dones,
-            infos,
-        )
-        self._last_obs = new_obs
-        # Save the unnormalized observation
-        if self._vec_normalize_env is not None:
-            self._last_original_obs = new_obs_
+    #    replay_buffer.add(
+    #        self._last_original_obs,
+    #        new_obs_,
+    #        buffer_action,
+    #        reward_,  # Vector reward
+    #        dones,
+    #        infos,
+    #    )
+    #    self._last_obs = new_obs
+    #    # Save the unnormalized observation
+    #    if self._vec_normalize_env is not None:
+    #        self._last_original_obs = new_obs_

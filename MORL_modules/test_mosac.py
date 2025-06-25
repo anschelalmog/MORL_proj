@@ -7,7 +7,7 @@ from gymnasium import spaces
 
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.vec_env import DummyVecEnv
-
+from stable_baselines3.common.vec_env.patch_gym import _patch_env  # Correct import
 # Import your MOSAC implementation
 from algorithms.mosac import MOSAC, MOSACPolicy, MOContinuousCritic, MOReplayBuffer, register_mosac
 
