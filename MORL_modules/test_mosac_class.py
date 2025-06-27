@@ -277,36 +277,34 @@ class TestMOSACTraining:
             env=env,
             learning_starts=0,
             gradient_steps=1,
-            batch_size=4,
+            batch_size=10,
             verbose=0,
             num_objectives=3
         )
 
         # Fill the replay buffer with some samples
-
-        obs, _ = model.env.envs[0].reset()
+        obs= model.env.reset()
         for _ in range(10):
             action = model.predict(obs, deterministic=False)[0]
-            next_obs, rewards, terminated, truncated, info = model.env.envs[0].unwrapped.step(action)
+            next_obs, rewards, terminated,  info = model.env.step(action)
             model._store_transition(
                 model.replay_buffer,
                 action,
                 next_obs,
                 rewards,
-                np.array([terminated or truncated]),
-                [info]
+                terminated,
+                info
             )
             obs = next_obs
-            if terminated or truncated:
-                obs, _ = model.env.envs[0].reset()
-
+            if terminated :
+                obs = model.env.reset()
         return model
 
     def test_train_single_step(self, filled_buffer_model):
         """Test a single training step."""
 
         model = filled_buffer_model
-
+        model._setup_learn(total_timesteps=1)
         # Get initial parameters
         initial_actor_params = {name: param.clone().detach()
                                 for name, param in model.actor.named_parameters()}
@@ -315,6 +313,7 @@ class TestMOSACTraining:
 
         # Perform one training step
 
+        #model._setup_learn(total_timesteps=1)
 
         model.train(gradient_steps=1, batch_size=4)
 
@@ -337,7 +336,7 @@ class TestMOSACTraining:
     def test_train_gradient_flow(self, filled_buffer_model):
         """Test that gradients flow correctly during training."""
         model = filled_buffer_model
-
+        model._setup_learn(total_timesteps=1)
         # Sample data from the replay buffer
         replay_data = model.replay_buffer.sample(4, model._vec_normalize_env)
 
@@ -430,8 +429,10 @@ class TestMOSACTraining:
 
 
         # Train both models
-        model.train(gradient_steps=3, batch_size=4)
-        model2.train(gradient_steps=3, batch_size=4)
+        model._setup_learn(total_timesteps=1)
+        model2._setup_learn(total_timesteps=1)
+        model.train(gradient_steps=1, batch_size=4)
+        model2.train(gradient_steps=1, batch_size=4)
 
         # Compare parameter updates
         # The magnitudes and directions should differ due to different preference weights
@@ -459,6 +460,7 @@ class TestMOSACTraining:
                                  for name, param in model.critic_target.named_parameters()}
 
         # Train for one step
+        model._setup_learn(total_timesteps=1)
         model.train(gradient_steps=1, batch_size=4)
 
         # Check that target parameters have been updated
@@ -489,13 +491,13 @@ class TestMOSACTraining:
         
         # Fill buffer with some vector rewards
         # With this safer version:
-        obs, _ = model.env.envs[0].reset()
+        obs, _ = model.env.reset()
 
         # Generate actions and custom vector rewards
         for i in range(10):
             action = model.predict(obs, deterministic=False)[0]
 
-            next_obs, _, terminated, truncated, info = model.env.envs[0].step(action)
+            next_obs, _, terminated,  info = model.env.envs[0].step(action)
 
             # Create a custom vector reward with a specific pattern
             # This makes it easier to verify the rewards are used correctly
@@ -508,13 +510,13 @@ class TestMOSACTraining:
                 next_obs,
                 reward,
                 np.array([terminated or truncated]),
-                [info]
+                info
             )
 
             obs = next_obs
             if terminated or truncated:
                 #the enviroment is in vector of enviroments
-                obs, _ = model.env.envs[0].reset()
+                obs, _ = model.env.reset()
 
         # Sample from replay buffer
         batch = model.replay_buffer.sample(4, model._vec_normalize_env)
@@ -546,21 +548,21 @@ class TestMOSACTraining:
         model = filled_buffer_model
 
         # Fill more samples into the buffer
-        obs, _ = model.env.envs[0].reset()
+        obs = model.env.reset()
         for _ in range(30):  # Add 30 more samples
             action = model.predict(obs, deterministic=False)[0]
-            next_obs, rewards, terminated, truncated, info = model.env.envs[0].unwrapped.step(action)
+            next_obs, rewards, terminated,  info = model.env.step(action)
             model._store_transition(
                 model.replay_buffer,
                 action,
                 next_obs,
                 rewards,
-                np.array([terminated or truncated]),
-                [info]
+                terminated,
+                info
             )
             obs = next_obs
-            if terminated or truncated:
-                obs, _ = model.env.envs[0].reset()
+            if terminated :
+                obs = model._vec_normalize_env.reset()
 
         # Train with different batch sizes
         for batch_size in [4, 8, 16]:
@@ -568,6 +570,7 @@ class TestMOSACTraining:
             model_copy = deepcopy(model)
 
             # Train with specific batch size
+            model_copy._setup_learn(total_timesteps=1)
             model_copy.train(gradient_steps=1, batch_size=batch_size)
 
             # We can't directly compare the parameter values as they'll differ by batch

@@ -7,7 +7,6 @@ from stable_baselines3.common.buffers import ReplayBuffer
 from stable_baselines3.common.buffers import ReplayBufferSamples
 from stable_baselines3.sac.policies import SACPolicy
 from stable_baselines3.sac.sac import SAC
-from stable_baselines3.common.buffers import ReplayBuffer
 from stable_baselines3.common.policies import ContinuousCritic
 from stable_baselines3.common.preprocessing import get_action_dim
 from stable_baselines3.common.torch_layers import create_mlp

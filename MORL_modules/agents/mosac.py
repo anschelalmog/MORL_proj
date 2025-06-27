@@ -432,7 +432,9 @@ class MOSAC(SAC):
             replay_data = self.replay_buffer.sample(batch_size, self._vec_normalize_env)# type: ignore[union-attr]
 
             # For n-step replay, discount factor is gamma**n_steps (when no early termination)
-            discounts = replay_data.discounts if replay_data.discounts is not None else self.gamma
+
+            discounts = self.gamma if (not hasattr(replay_data , "discounts" )
+                                           or replay_data.discounts ) is not None else replay_data.discounts
 
             # We need to sample because `log_std` may have changed between two gradient steps
             if self.use_sde:
@@ -473,7 +475,7 @@ class MOSAC(SAC):
                 # Assuming rewards has shape (batch_size, num_objectives)
                 target_q_values = []
                 for obj_idx in range(self.num_objectives):
-                    # Get Q-values for this objective from all critic ensembles
+                    # Get Q-values for this objective for both critics
                     obj_next_q_values = th.cat([
                         ensemble[obj_idx] for ensemble in next_q_values
                     ], dim=1)
@@ -492,8 +494,9 @@ class MOSAC(SAC):
             current_q_values = self.critic(replay_data.observations, replay_data.actions)
 
             # Compute critic loss for each objective, use preference weights
-            critic_loss = 0.5 * sum( sum(F.mse_loss(obj_current_q, target_q_value[critic_idx][obj_idx])*self.preference_weights[obj_idx] for
-                                         obj_idx, obj_current_q in enumerate(current_q_values))
+            critic_loss = 0.5 * sum( sum(F.mse_loss(obj_current_q,
+                                                    target_q_values[obj_idx])*self.preference_weights[obj_idx] for
+                                         obj_idx, obj_current_q in enumerate(current_q))
                                     for critic_idx , current_q in enumerate(current_q_values))
             critic_losses.append(critic_loss.item())
 
@@ -505,7 +508,7 @@ class MOSAC(SAC):
             # Compute actor loss
             # Alternative: actor_loss = th.mean(log_prob - qf1_pi)
             # Min over all critic networks
-            q_values_pi = th.cat(self.critic.q_value(replay_data.observations, actions_pi, self.preference_weights ), dim=1)
+            q_values_pi = th.cat(self.critic.q_value(replay_data.observations, actions_pi, self.preference_weights_tensor ), dim=1)
             min_qf_pi, _ = th.min(q_values_pi, dim=1, keepdim=True)
             actor_loss = (ent_coef * log_prob - min_qf_pi).mean()
             actor_losses.append(actor_loss.item())
