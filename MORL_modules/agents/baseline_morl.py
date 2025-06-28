@@ -3,7 +3,11 @@
 import os
 import numpy as np
 import logging
-from typing import Dict, List, Tuple, Any, Optional
+import gymnasium as gym
+import gymnasium
+from gymnasium.spaces import flatten_space, flatten
+from gymnasium import spaces
+from typing import Dict, Tuple, Any, List, Optional
 import pickle
 from pathlib import Path
 
@@ -11,8 +15,35 @@ from stable_baselines3 import SAC, PPO, TD3
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.logger import Logger
 
+from gymnasium.wrappers import FlattenObservation
+from gymnasium.spaces import flatten_space, flatten
 from MORL_modules.wrappers.scalarized_mo_pcs_wrapper import ScalarizedMOPCSWrapper
 
+
+class ActionSpaceFlattenWrapper(gym.ActionWrapper):
+    """Flatten Dict action space to Box for single-agent algorithms."""
+
+    def __init__(self, env):
+        super().__init__(env)
+        # Flatten the action space
+        self.action_space = flatten_space(env.action_space)
+
+    def action(self, action):
+        # Convert flattened action back to dict
+        if hasattr(self.env.action_space, 'spaces'):
+            # Split the flattened action back into dict format
+            action_dict = {}
+            start_idx = 0
+            for key, space in self.env.action_space.spaces.items():
+                if hasattr(space, 'shape'):
+                    end_idx = start_idx + space.shape[0]
+                    action_dict[key] = action[start_idx:end_idx]
+                    start_idx = end_idx
+                else:
+                    action_dict[key] = action[start_idx]
+                    start_idx += 1
+            return action_dict
+        return action
 
 class MORewardTrackingCallback(BaseCallback):
     """Callback to track multi-objective rewards during training."""
@@ -153,11 +184,9 @@ class BaselineMORLAgent:
 
             # Create environment with scalarized wrapper
             env = self.env_creator_fn()
-            wrapped_env = ScalarizedMOPCSWrapper(
-                env,
-                weights=weights,
-                normalize_weights=False
-            )
+            wrapped_env = ScalarizedMOPCSWrapper(env, weights=weights, normalize_weights=False)
+            wrapped_env = ActionSpaceFlattenWrapper(wrapped_env)
+            wrapped_env = FlattenObservation(wrapped_env)
 
             # Create agent
             algorithm_class = self.algorithm_classes[self.algorithm]
@@ -277,6 +306,9 @@ class BaselineMORLAgent:
             # Create evaluation environment
             env = self.env_creator_fn()
             wrapped_env = ScalarizedMOPCSWrapper(env, weights=weights, normalize_weights=False)
+            wrapped_env = ActionSpaceFlattenWrapper(wrapped_env)
+
+            wrapped_env = FlattenObservation(wrapped_env)
 
             episode_rewards = []
             episode_mo_rewards = []

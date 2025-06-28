@@ -1,5 +1,6 @@
 # MORL_modules/configs/baseline_morl_config.py
 
+import torch.nn as nn
 import numpy as np
 from typing import Dict, List, Any
 from pathlib import Path
@@ -12,9 +13,9 @@ class BaselineMORLConfig:
     ENV_CONFIG = {
         "controller_name": "EnergyNetController",
         "controller_module": "energy_net.controllers",
-        "env_config_path": "energy_net/configs/environment_config.yaml",
-        "iso_config_path": "energy_net/configs/iso_config.yaml",
-        "pcs_unit_config_path": "energy_net/configs/pcs_unit_config.yaml",
+        "env_config_path": "configs/environment_config.yaml",
+        "iso_config_path": "configs/iso_config.yaml",
+        "pcs_unit_config_path": "configs/pcs_unit_config.yaml",
         "cost_type": "CONSTANT",
         "pricing_policy": "QUADRATIC",
         "demand_pattern": "SINUSOIDAL"
@@ -44,7 +45,7 @@ class BaselineMORLConfig:
             "target_update_interval": 1,
             "policy_kwargs": {
                 "net_arch": [256, 256],
-                "activation_fn": "relu"
+                "activation_fn": nn.ReLU
             }
         },
 
@@ -61,7 +62,7 @@ class BaselineMORLConfig:
             "n_epochs": 10,
             "policy_kwargs": {
                 "net_arch": [256, 256],
-                "activation_fn": "tanh"
+                "activation_fn": nn.Tanh
             }
         },
 
@@ -79,7 +80,7 @@ class BaselineMORLConfig:
             "target_noise_clip": 0.5,
             "policy_kwargs": {
                 "net_arch": [256, 256],
-                "activation_fn": "relu"
+                "activation_fn": nn.ReLU
             }
         }
     }
