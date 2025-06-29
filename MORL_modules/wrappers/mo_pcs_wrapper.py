@@ -364,7 +364,8 @@ class MOPCSWrapper(gym.Wrapper):
                              f"Battery={self.current_episode_rewards[1]:.3f}, "
                              f"Grid={self.current_episode_rewards[2]:.3f}, "
                              f"Autonomy={self.current_episode_rewards[3]:.3f}")
-
+        observation = observation['pcs']
+        print(observation)
         return observation, mo_rewards, terminated, truncated, info
 
     def get_episode_statistics(self) -> Dict[str, Any]:
