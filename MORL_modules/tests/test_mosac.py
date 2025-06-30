@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 # Import the MOSAC agent
 try:
-    from agents.mosac.mosac import MOSAC
+    from agents.mosac2.mosac import MOSAC
 except ImportError as e:
     pytest.skip(f"Could not import MOSAC: {e}")
 

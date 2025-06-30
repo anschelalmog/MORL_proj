@@ -15,15 +15,14 @@ sys.path.append(project_root)
 sys.path.append(os.path.join(project_root, 'MORL_modules'))
 print(project_root)
 print(current_dir)
-
-from MORL_modules.agents.mosac import MOSAC, MOSACPolicy, MOContinuousCritic
-from MORL_modules.agents.mobuffers import MOReplayBuffer
-from MORL_modules.agents.monets import SharedFeatureQNet, SeparateQNet
-from MORL_modules.agents.mo_env_wrappers import MODummyVecEnv, MultiObjectiveWrapper
-from MORL_modules.wrappers.mo_pcs_wrapper import MOPCSWrapper
-from MORL_modules.wrappers.scalarized_mo_pcs_wrapper import ScalarizedMOPCSWrapper
-
-from energy_net.energy_net.envs.energy_net_v0 import EnergyNetV0
+from agents.mosac import MOSAC, MOSACPolicy, MOContinuousCritic
+from agents.mobuffers import MOReplayBuffer as MOReplayBuffer
+from agents.monets import SharedFeatureQNet, SeparateQNet
+from agents.mo_env_wrappers import MODummyVecEnv, MultiObjectiveWrapper
+from wrappers.mo_pcs_wrapper import MOPCSWrapper
+from wrappers.scalarized_mo_pcs_wrapper import ScalarizedMOPCSWrapper
+from wrappers.dict_to_box_wrapper import DictToBoxWrapper
+from energy_net.envs.energy_net_v0 import EnergyNetV0
 
 from energy_net.market.pricing.pricing_policy import PricingPolicy
 from energy_net.market.pricing.cost_types import CostType
@@ -41,7 +40,7 @@ def create_energynet_env(**kwargs):
 
     default_kwargs.update(kwargs)
 
-    return EnergyNetV0(**default_kwargs)
+    return DictToBoxWrapper(EnergyNetV0(**default_kwargs))
 
 
 class TestMOReplayBuffer:
@@ -328,7 +327,6 @@ class TestEnvironmentWrappers:
 
         assert isinstance(reward, np.ndarray)
         assert len(reward) == 4  # num_objectives
-        breakpoint()
         assert 'mo_rewards' in info or any('reward' in k for k in info.keys())
 
     def test_scalarized_wrapper(self):
@@ -369,10 +367,9 @@ class TestMOSAC:
         """Test MOSAC initialization with MO environment."""
         base_env = create_energynet_env()
         mo_env = MOPCSWrapper(base_env, num_objectives=4)
-
         model = MOSAC(
-            "MOSACPolicy",
-            mo_env,
+            policy="MOSACPolicy",
+            env = mo_env,
             num_objectives=4,
             learning_starts=10,
             buffer_size=1000,
@@ -382,23 +379,25 @@ class TestMOSAC:
 
         assert model.num_objectives == 4
         assert np.allclose(model.preference_weights, np.ones(4) / 4)
-        assert isinstance(model.replay_buffer, MOReplayBuffer)
+        assert isinstance(model.replay_buffer, MOReplayBuffer )
 
     def test_custom_preference_weights(self):
         """Test MOSAC with custom preference weights."""
         base_env = create_energynet_env()
-        mo_env = MOPCSWrapper(base_env, num_objectives=3)
+        mo_env = MOPCSWrapper(base_env, num_objectives=4)
 
-        weights = [0.5, 0.3, 0.2]
+        weights = [0.5, 0.3, 0.2, 0.1]
         model = MOSAC(
-            "MOSACPolicy",
-            mo_env,
-            num_objectives=3,
-            preference_weights=weights,
+            policy="MOSACPolicy",
+            env=mo_env,
+            num_objectives=4,
             learning_starts=10,
             buffer_size=1000,
-            verbose=0
+            batch_size=64,
+            verbose=0,
+            preference_weights=weights
         )
+
 
         expected_weights = np.array(weights) / np.sum(weights)
         np.testing.assert_array_almost_equal(model.preference_weights, expected_weights)
@@ -406,15 +405,15 @@ class TestMOSAC:
     def test_learn_with_mo_environment(self):
         """Test learning with multi-objective environment."""
         base_env = create_energynet_env()
-        mo_env = MOPCSWrapper(base_env, num_objectives=3)
+        mo_env = MOPCSWrapper(base_env, num_objectives=4)
 
         model = MOSAC(
-            "MOSACPolicy",
-            mo_env,
-            num_objectives=3,
-            learning_starts=5,
-            buffer_size=100,
-            batch_size=16,
+            policy="MOSACPolicy",
+            env=mo_env,
+            num_objectives=4,
+            learning_starts=10,
+            buffer_size=1000,
+            batch_size=64,
             verbose=0
         )
 
@@ -428,18 +427,17 @@ class TestMOSAC:
     def test_predict_with_mo_environment(self):
         """Test prediction with multi-objective environment."""
         base_env = create_energynet_env()
-        mo_env = MOPCSWrapper(base_env, num_objectives=3)
+        mo_env = MOPCSWrapper(base_env, num_objectives=4)
 
         model = MOSAC(
-            "MOSACPolicy",
-            mo_env,
-            num_objectives=3,
-            learning_starts=5,
-            buffer_size=100,
-            batch_size=16,
+            policy="MOSACPolicy",
+            env=mo_env,
+            num_objectives=4,
+            learning_starts=10,
+            buffer_size=1000,
+            batch_size=64,
             verbose=0
         )
-
         # Quick training
         model.learn(total_timesteps=20, log_interval=None)
 
@@ -460,8 +458,8 @@ class TestIntegration:
         mo_env = MOPCSWrapper(base_env, num_objectives=4)
 
         model = MOSAC(
-            "MOSACPolicy",
             mo_env,
+            "MOSACPolicy",
             num_objectives=4,
             learning_starts=10,
             buffer_size=500,
@@ -495,11 +493,11 @@ class TestIntegration:
         base_env = create_energynet_env()
 
         # Multi-objective version
-        mo_env = MOPCSWrapper(base_env, num_objectives=3)
+        mo_env = MOPCSWrapper(base_env, num_objectives=4)
         mo_model = MOSAC(
-            "MOSACPolicy",
             mo_env,
-            num_objectives=3,
+            "MOSACPolicy",
+            num_objectives=4,
             learning_starts=5,
             buffer_size=100,
             verbose=0
@@ -508,15 +506,15 @@ class TestIntegration:
         # Scalarized version
         scalarized_env = ScalarizedMOPCSWrapper(
             create_energynet_env(),
-            weights=np.array([0.6, 0.3, 0.1]),
-            num_objectives=3
+            weights=np.array([0.6, 0.3, 0.1,0.2]),
+            num_objectives=4
         )
         # Note: ScalarizedMOPCSWrapper should work with regular SAC
         # but for this test we'll use MOSAC with num_objectives=1
         scalar_model = MOSAC(
-            "MOSACPolicy",
             scalarized_env,
-            num_objectives=3,  # The wrapper handles scalarization
+            "MOSACPolicy",
+            num_objectives=4,  # The wrapper handles scalarization
             learning_starts=5,
             buffer_size=100,
             verbose=0
@@ -556,8 +554,8 @@ class TestIntegration:
 
         # Test short training to ensure everything integrates
         model = MOSAC(
-            "MOSACPolicy",
             mo_env,
+            "MOSACPolicy",
             num_objectives=4,
             learning_starts=5,
             buffer_size=50,

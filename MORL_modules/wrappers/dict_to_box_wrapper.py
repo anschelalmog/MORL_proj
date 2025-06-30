@@ -19,6 +19,12 @@ class DictToBoxWrapper(gym.Wrapper):
 
         # Process observation space
         self.original_observation_space = env.observation_space
+        #convert the spaces to spaces.Dict for clarity
+        if isinstance(self.original_observation_space,  Dict):
+            self.original_observation_space =  spaces.Dict(self.original_observation_space)
+
+
+
         if isinstance(self.original_observation_space, spaces.Dict):
             self.obs_keys = list(self.original_observation_space.spaces.keys())
             self.obs_shapes = {}
@@ -69,6 +75,9 @@ class DictToBoxWrapper(gym.Wrapper):
 
         # Process action space
         self.original_action_space = env.action_space
+        # convert the spaces to spaces.Dict for clarity
+        if isinstance(self.original_action_space, Dict):
+            self.original_action_space = spaces.Dict(self.original_action_space)
         if isinstance(self.original_action_space, spaces.Dict):
             self.action_keys = list(self.original_action_space.spaces.keys())
             self.action_shapes = {}

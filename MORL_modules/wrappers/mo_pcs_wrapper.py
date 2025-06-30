@@ -318,7 +318,6 @@ class MOPCSWrapper(gym.Wrapper):
 
         # Compute multi-objective rewards
         mo_rewards = np.zeros(self.num_objectives)
-
         # 1. Economic objective
         economic_reward = self._compute_economic_reward(reward, info)
         mo_rewards[0] = self._normalize_reward(economic_reward, 'economic')
@@ -364,8 +363,7 @@ class MOPCSWrapper(gym.Wrapper):
                              f"Battery={self.current_episode_rewards[1]:.3f}, "
                              f"Grid={self.current_episode_rewards[2]:.3f}, "
                              f"Autonomy={self.current_episode_rewards[3]:.3f}")
-        observation = observation['pcs']
-        print(observation)
+
         return observation, mo_rewards, terminated, truncated, info
 
     def get_episode_statistics(self) -> Dict[str, Any]:
