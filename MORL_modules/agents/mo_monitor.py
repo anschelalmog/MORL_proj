@@ -4,7 +4,7 @@ import os
 import time
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-import gym
+import gymnasium  as gym
 import numpy as np
 import pandas
 
@@ -15,8 +15,6 @@ import json
 import os
 import time
 from typing import Any, Dict, List, Optional, Tuple, Union
-
-import gym
 import numpy as np
 from stable_baselines3.common.monitor import Monitor, ResultsWriter
 
@@ -27,11 +25,11 @@ class MOMonitor(Monitor):
     This class extends the stable_baselines3 Monitor class to handle vector rewards.
 
     :param env: The environment to wrap
-    :param filename: Path to a log file. If None, no file will be created
+    :param filename: Path to a log file. If None, no file will be created use
     :param allow_early_resets: Allow reset before the episode is complete
     :param reset_keywords: Keywords for reset that need to be tracked
     :param info_keywords: Keywords for info that need to be tracked
-    :param vector_size: Size of the reward vector
+    :param num_objectives: Size of the reward vector (number if objectives to the MORL enviroment)
     :param override_existing: appends to file if ``filename`` exists, otherwise
         override existing files (default)
     """
@@ -39,7 +37,7 @@ class MOMonitor(Monitor):
     def __init__(
             self,
             env: gym.Env,
-            filename: Optional[str] = None,
+            filename: Optional[str] = "logs/mo_monitor/monitor.csv",
             allow_early_resets: bool = True,
             reset_keywords: Tuple[str, ...] = (),
             info_keywords: Tuple[str, ...] = (),
@@ -49,7 +47,7 @@ class MOMonitor(Monitor):
         # Initialize the parent Monitor class
         super().__init__(
             env=env,
-            filename=None,  # We'll handle the file creation ourselves
+            filename=filename,  # We'll handle the file creation ourselves
             allow_early_resets=allow_early_resets,
             reset_keywords=reset_keywords,
             info_keywords=info_keywords,
@@ -65,14 +63,11 @@ class MOMonitor(Monitor):
         # Create a custom results writer if filename is provided
         if filename is not None:
             env_id = env.spec.id if env.spec is not None else None
-            # Create header with r1, r2, ... for each reward component
-            reward_keys = [f"r{i + 1}" for i in range(vector_size)]
-            self.results_writer = MOResultsWriter(
+            self.results_writer = ResultsWriter(
                 filename,
                 header={"t_start": self.t_start, "env_id": str(env_id)},
                 extra_keys=reset_keywords + info_keywords,
-                override_existing=override_existing,
-                reward_keys=reward_keys
+                override_existing=override_existing
             )
 
     def step(self, action):
@@ -95,8 +90,8 @@ class MOMonitor(Monitor):
             reward_vector[0] = float(reward)
         else:
             # Ensure reward is a numpy array of the correct size
-            if len(reward) != self.vector_size:
-                raise ValueError(f"Reward vector size {len(reward)} does not match expected size {self.vector_size}")
+            if len(reward) != self.num_objectives:
+                raise ValueError(f"Reward vector size {len(reward)} does not match expected size {self.num_objectives}")
             reward_vector = np.array(reward, dtype=np.float32)
 
         # Store the reward vector

@@ -25,7 +25,7 @@ from  agents.mobuffers import MOReplayBuffer
 from typing import ClassVar
 from stable_baselines3.sac.policies import Actor, CnnPolicy, MlpPolicy, MultiInputPolicy, SACPolicy
 from stable_baselines3.common.noise import ActionNoise
-
+from agents.mo_monitor import MOMonitor
 from agents.mo_env_wrappers import MODummyVecEnv,  MultiObjectiveWrapper
 from stable_baselines3.common.preprocessing import check_for_nested_spaces, is_image_space, is_image_space_channels_first
 #for overriding  _wrap_env
@@ -297,7 +297,10 @@ class MOSAC(SAC):
         num_objectives=4,
         preference_weights=None,
         ):
-
+        if hasattr(env, "num_objectives"):
+            assert env.num_objectives == num_objectives
+        else:
+            env.num_objectives = num_objectives
         self.num_objectives = num_objectives
         if preference_weights is None:
             self.preference_weights = np.ones(self.num_objectives, dtype=np.float32) / self.num_objectives
@@ -379,10 +382,10 @@ class MOSAC(SAC):
             # Patch to support gym 0.21/0.26 and gymnasium
             env = _patch_env(env)
 
-            #if not is_wrapped(env, Monitor) and monitor_wrapper:
-            #    if verbose >= 1:
-            #        print("Wrapping the env with a `Monitor` wrapper")
-            #    env = Monitor(env)
+            if not is_wrapped(env, MOMonitor) and monitor_wrapper:
+                if verbose >= 1:
+                    print("Wrapping the env with a `Monitor` wrapper")
+                env = MOMonitor(env, num_objectives = env.num_objectives)
             if verbose >= 1:
                 print("Wrapping the env in a DummyVecEnv.")
             env = MODummyVecEnv([lambda: env])  # type: ignore[list-item, return-value]
@@ -474,6 +477,7 @@ class MOSAC(SAC):
                 # Compute target Q-values for each objective
                 # Assuming rewards has shape (batch_size, num_objectives)
                 target_q_values = []
+                #Get Q-values has size ( num_critics, num_objectives, batch_size)
                 for obj_idx in range(self.num_objectives):
                     # Get Q-values for this objective for both critics
                     obj_next_q_values = th.cat([
