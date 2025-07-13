@@ -22,7 +22,7 @@ from energy_net.market.pricing.cost_types import CostType
 from energy_net.dynamics.consumption_dynamics.demand_patterns import DemandPattern
 
 from utils.utils import moving_average, plot_results_scalarized
-
+from utils.callbacks import SaveOnBestTrainingRewardCallback
 
 def create_energynet_env(**kwargs):
     """Create EnergyNet environment."""
@@ -50,13 +50,17 @@ def test_learn_with_mo_environment():
         learning_starts=10,
         buffer_size=1000,
         batch_size=64,
-        verbose=0
+        verbose=0,
+        policy_kwargs={"share_features_across_objectives": False},
+        train_freq=(1, "episode"),
+        gradient_steps=1,
     )
 
     # Short learning run
-    model.learn(total_timesteps=50, log_interval=1)
+    model.learn(total_timesteps=500000, log_interval=1, callback=
+                SaveOnBestTrainingRewardCallback(check_freq = 50, log_dir= "MORL_modules/logs/mosac_monitor/"))
 
-    plot_results_scalarized("logs/mo_monitor", title="Learning Curve")
+    plot_results_scalarized("MORL_modules/logs/mosac_monitor/", title="Learning Curve")
     # Check that model has learned something
     assert model._n_updates >= 0
     assert model.replay_buffer.size() > 0

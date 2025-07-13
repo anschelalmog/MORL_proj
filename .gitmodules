@@ -1,0 +1,6 @@
+[submodule "MORL_modules/Hyper-MORL"]
+	path = MORL_modules/Hyper-MORL
+	url = https://github.com/HisaoLabSUSTC/Hyper-MORL.git
+[submodule "MORL_modules/external/Hyper-MORL"]
+	path = MORL_modules/external/Hyper-MORL
+	url = https://github.com/HisaoLabSUSTC/Hyper-MORL.git

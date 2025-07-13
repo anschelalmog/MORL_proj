@@ -3,7 +3,6 @@ import numpy as np
 from gymnasium import spaces
 from typing import Dict, Tuple, Any, Optional, Union
 
-
 class DictToBoxWrapper(gym.Wrapper):
     """
     A wrapper that converts dictionary observation and action spaces to Box spaces.

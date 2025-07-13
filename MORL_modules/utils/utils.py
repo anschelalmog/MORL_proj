@@ -5,6 +5,7 @@ import re
 from stable_baselines3.common.results_plotter import load_results, ts2xy
 import numpy as np
 import matplotlib.pyplot as plt
+import os
 
 def moving_average(values, window):
     """
@@ -17,20 +18,24 @@ def moving_average(values, window):
     return np.convolve(values, weights, "valid")
 
 
+import re
+import numpy as np
+
 def robust_conversion_from_csv(arr):
     result = []
 
     for string_repr in arr:
-        # Use regex to find all numbers
-        numbers = re.findall(r'[-+]?\d*\.?\d+', string_repr)
+        # Updated regex to handle scientific notation
+        # Matches: [-+]?[digits][.digits]?[eE][-+]?[digits]
+        numbers = re.findall(r'[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?', string_repr)
         values = [float(x) for x in numbers]
+        assert len(values) == 4
         result.append(np.array(values))
-
-    return np.array(result, np.float32)
-
+    return np.stack(result, axis=0, dtype=np.float32)
 
 
-def plot_results_scalarized(log_folder, title="Learning Curve", preference_weights = None):
+
+def plot_results_scalarized(log_folder, title="Learning Curve", save_plot = True, preference_weights = None, plot_path = None):
     """
     plot the results
 
@@ -62,3 +67,18 @@ def plot_results_scalarized(log_folder, title="Learning Curve", preference_weigh
     plt.ylabel("Rewards")
     plt.title(title + " Smoothed")
     plt.show()
+
+
+    # Save the plot if requested
+    if save_plot:
+        if plot_path is None:
+            # Default path: save in the log folder
+            plot_path = os.path.join(log_folder, "learning_curve.png")
+
+        # Create directory if it doesn't exist
+        os.makedirs(os.path.dirname(os.path.abspath(plot_path)), exist_ok=True)
+
+        # Save figure with tight bbox and high DPI for quality
+        plt.savefig(plot_path, bbox_inches='tight', dpi=300)
+        print(f"Plot saved to {plot_path}")
+    return x,y

@@ -167,6 +167,7 @@ class DictToBoxWrapper(gym.Wrapper):
         dict_action = {}
 
         # Fill the dictionary with values from the flat action
+
         for key in self.action_keys:
             start_idx, end_idx = self.action_indices[key]
             flat_component = action[start_idx:end_idx]

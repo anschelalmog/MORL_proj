@@ -37,7 +37,7 @@ class MOMonitor(Monitor):
     def __init__(
             self,
             env: gym.Env,
-            filename: Optional[str] = "logs/mo_monitor/monitor.csv",
+            filename: Optional[str] = "MORL_modules/logs/mosac_monitor/monitor.csv",
             allow_early_resets: bool = True,
             reset_keywords: Tuple[str, ...] = (),
             info_keywords: Tuple[str, ...] = (),
