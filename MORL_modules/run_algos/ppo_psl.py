@@ -10,8 +10,10 @@ import time, os, pickle
 from copy import deepcopy
 from multiprocessing import Process, Queue, Event
 #from a2c_ppo_acktr import utils
-from utils import parallel_evaluate, save_result, generate_prefs, NormalizationRecorder
-from utils import LinearScalarization, evaluate, update_linear_schedule
+
+#overide the external utiles
+from hyper_morl_utils import parallel_evaluate, save_result, generate_prefs, NormalizationRecorder
+from hyper_morl_utils  import LinearScalarization, evaluate, update_linear_schedule
 from a2c_ppo_acktr import utils
 # from target_policy import Policy
 from a2c_ppo_acktr.envs import make_vec_envs

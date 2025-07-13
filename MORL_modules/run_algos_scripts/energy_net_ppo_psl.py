@@ -33,7 +33,7 @@ for k in range(task_num):
         command_str = 'python MORL_modules/run_algos/run_ppo_psl.py '\
                 '--env-name MO-EnergyNet-v0 '\
                 '--seed {} '\
-                '--num-env-steps 300000 '\
+                '--num-env-steps 30 '\
                 '--eval-num 1 '\
                 '--obj-rms '\
                 '--ob-rms '\
