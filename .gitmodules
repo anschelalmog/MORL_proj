@@ -7,3 +7,6 @@
 [submodule "MORL_modules/externals/Hyper-MORL"]
 	path = MORL_modules/externals/Hyper-MORL
 	url = https://github.com/HisaoLabSUSTC/Hyper-MORL.git
+[submodule "energy-net"]
+	path = energy-net
+	url = https://github.com/RotemShezaf/energy-net.git
