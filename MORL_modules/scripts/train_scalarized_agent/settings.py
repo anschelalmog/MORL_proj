@@ -1,23 +1,11 @@
 #!/usr/bin/env python3
-"""
-MORL Configuration Module
-
-Centralized configuration for Multi-Objective Reinforcement Learning
-training and analysis on EnergyNet PCS environment.
-
-All TRUE/FALSE switches, weight configurations, paths, and constants are defined here.
-"""
 
 import os
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional, Union, Any
+from typing import List
 
-# ============================================================================
-# PATH CONFIGURATION
-# ============================================================================
 
-# Get project paths
 current_dir = os.path.dirname(os.path.abspath(__file__))
 scripts_dir = os.path.dirname(current_dir)  # scripts/
 morl_modules_dir = os.path.dirname(scripts_dir)  # MORL_modules/
@@ -53,10 +41,6 @@ RUN_QUICK_EVAL = True  # Run quick evaluation after training
 CONFIRM_BATCH_RUNS = True  # Ask confirmation for batch experiments
 AUTO_CLEANUP_LOGS = False  # Automatically clean old logs
 
-# Dependency Settings
-REQUIRE_MATPLOTLIB = False  # Fail if matplotlib unavailable
-REQUIRE_MOSAC = False  # Fail if MOSAC unavailable
-GRACEFUL_FALLBACKS = True  # Use fallbacks for missing components
 
 # Logging Settings
 VERBOSE_LOGGING = True  # Detailed logging output
@@ -263,8 +247,6 @@ def get_device():
     except ImportError:
         return 'cpu'
 
-
-# Set device
 DEVICE = get_device()
 
 
@@ -301,21 +283,6 @@ def list_configurations() -> List[str]:
     return list(WEIGHT_CONFIGURATIONS.keys())
 
 
-# ============================================================================
-# DEPENDENCY STATUS
-# ============================================================================
-
-# Will be populated by importing modules
-DEPENDENCY_STATUS = {
-    'torch': False,
-    'stable_baselines3': False,
-    'energy_net': False,
-    'mosac': False,
-    'scalarized_wrapper': False,
-    'matplotlib': False,
-    'pandas': False,
-    'seaborn': False
-}
 
 # ============================================================================
 # EXPERIMENT TEMPLATES
