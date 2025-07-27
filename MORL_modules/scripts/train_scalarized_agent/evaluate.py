@@ -17,7 +17,7 @@ from typing import Dict, List, Optional, Union, Tuple, Any
 import numpy as np
 
 # Import configuration
-from .morl_config import (
+from .settings import (
     WEIGHT_CONFIGURATIONS, OBJECTIVE_NAMES, PERFORMANCE_METRICS,
     ANALYSIS_WINDOWS, CREATE_PLOTS, SAVE_RAW_DATA, GENERATE_REPORTS,
     PLOT_INDIVIDUAL_CONFIGS, PLOT_STYLE, PLOT_PALETTE, PLOT_DPI,

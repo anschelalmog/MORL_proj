@@ -21,7 +21,7 @@ import numpy as np
 from .settings import (
     WEIGHT_CONFIGURATIONS, OBJECTIVE_NAMES, DEFAULT_TRAINING_PARAMS,
     QUICK_TEST_CONFIG, FULL_EXPERIMENT_CONFIG, DEV_CONFIG,
-    CONFIRM_BATCH_RUNS, VERBOSE_LOGGING, VERSION, SCRIPT_NAME,
+    CONFIRM_BATCH_RUNS, VERBOSE_LOGGING, SCRIPT_NAME,
     list_configurations, validate_config_name, get_config,
     create_log_directory, get_experiment_name
 )
@@ -411,7 +411,7 @@ def main():
 
     # Print header
     print("=" * 80)
-    print(f"🤖 {SCRIPT_NAME} v{VERSION}")
+    print(f"🤖 {SCRIPT_NAME}")
     print("=" * 80)
 
     # Check system readiness

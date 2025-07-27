@@ -18,7 +18,7 @@ from typing import Dict, List, Optional, Union, Tuple, Any
 import numpy as np
 
 # Import configuration
-from .morl_config import (
+from .settings import (
     WEIGHT_CONFIGURATIONS, OBJECTIVE_NAMES, DEFAULT_TRAINING_PARAMS,
     MOSAC_PARAMS, SAC_PARAMS, ENVIRONMENT_PARAMS, QUICK_EVAL_PARAMS,
     USE_MOSAC, USE_SCALARIZED_WRAPPER, USE_MONITOR_WRAPPER, USE_TENSORBOARD,
