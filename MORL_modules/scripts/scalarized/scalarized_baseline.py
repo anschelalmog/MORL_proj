@@ -1,11 +1,4 @@
 #!/usr/bin/env python3
-"""
-Usage:
-    python scalarized_baseline.py --config balanced --algorithms ppo sac
-    python scalarized_baseline.py --config all --algorithms ppo
-    python scalarized_baseline.py --list-algorithms
-"""
-
 import os
 import sys
 import time
@@ -25,10 +18,8 @@ from stable_baselines3 import PPO, SAC, A2C, TD3
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.callbacks import EvalCallback
 
-from scalarized_trainer import (create_environment,
-    CONFIGURATIONS, DEFAULT_PARAMS,
-    load_training_data)
-
+from MORL_modules.scripts.scalarized.scalarized_trainer import (create_environment,
+    CONFIGURATIONS, DEFAULT_PARAMS, load_training_data)
 
 BASELINE_ALGORITHMS = {
     'ppo': {
@@ -612,15 +603,8 @@ Examples:
   # Train specific algorithm with custom parameters  
   python scalarized_baseline.py --config economic_only --algorithms td3 --timesteps 100000
 
-  # List available algorithms
-  python scalarized_baseline.py --list-algorithms
-
-Available Algorithms:
-  ppo  - Proximal Policy Optimization
-  sac  - Soft Actor-Critic  
-  a2c  - Advantage Actor-Critic
-  td3  - Twin Delayed DDPG
-        """
+Available Algorithms: ppo  sac a2c td3
+"""
     )
 
     parser.add_argument(
@@ -670,7 +654,7 @@ Available Algorithms:
 def print_baseline_header():
     """Print baseline application header."""
     print("=" * 70)
-    print("📊 SCALARIZED MORL BASELINE COMPARISON")
+    print("SCALARIZED MORL BASELINE COMPARISON")
     print("=" * 70)
     print(f"Start time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"Device: {DEFAULT_PARAMS['device']}")
@@ -689,20 +673,12 @@ def print_algorithms():
 
 
 def main():
-    """Main entry point for baseline comparison."""
-
     parser = create_baseline_parser()
     args = parser.parse_args()
-
-    # Handle list algorithms
-    if args.list_algorithms:
-        print_algorithms()
-        sys.exit(0)
 
     print_baseline_header()
 
     try:
-        # Process algorithm and config lists
         if 'all' in args.algorithms:
             algorithms = list(BASELINE_ALGORITHMS.keys())
         else:
@@ -716,9 +692,8 @@ def main():
         # Validate algorithms
         for alg in algorithms:
             if alg not in BASELINE_ALGORITHMS:
-                print(f"❌ Invalid algorithm: {alg}")
+                print(f" Invalid algorithm: {alg}")
                 print("Available algorithms:", list(BASELINE_ALGORITHMS.keys()))
-                sys.exit(1)
 
         # Create log directory
         log_dir = Path(args.log_dir)
@@ -732,13 +707,6 @@ def main():
 
         total_experiments = len(algorithms) * len(configs)
         print(f"📊 Total experiments: {total_experiments}")
-
-        # Ask for confirmation if many experiments
-        if total_experiments > 2:
-            response = input(f"\nProceed with {total_experiments} baseline experiments? [Y/n]: ").lower().strip()
-            if response in ['n', 'no']:
-                print("Baseline experiments cancelled.")
-                sys.exit(0)
 
         # Run baseline experiments
         results = train_baseline_batch(
@@ -763,15 +731,15 @@ def main():
                 print(f"   - {failed['algorithm']} on {failed['config_name']}: {failed.get('error', 'Unknown error')}")
 
     except KeyboardInterrupt:
-        print("\n⚠️ Baseline experiments interrupted by user")
+        print("\n Baseline experiments interrupted by user")
         sys.exit(130)
 
     except Exception as e:
-        print(f"\n❌ Error: {e}")
+        print(f"\n Error: {e}")
         traceback.print_exc()
         sys.exit(1)
 
-    print(f"\n🏁 Baseline run completed at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"\n Baseline run completed at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
 
 if __name__ == "__main__":

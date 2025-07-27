@@ -29,9 +29,9 @@ from energy_net.market.pricing.cost_types import CostType
 from energy_net.market.pricing.pricing_policy import PricingPolicy
 from energy_net.dynamics.consumption_dynamics.demand_patterns import DemandPattern
 
-# MORL imports
-from agents.mosac import MOSAC
-from wrappers.scalarized_mo_pcs_wrapper import ScalarizedMOPCSWrapper
+from MORL_modules.agents.mosac import MOSAC
+from MORL_modules.wrappers.scalarized_mo_pcs_wrapper import ScalarizedMOPCSWrapper
+from MORL_modules.wrappers.mo_pcs_wrapper import MOPCSWrapper
 
 # ============================================================================
 # CONFIGURATION SETTINGS
@@ -104,7 +104,7 @@ def create_environment(weights: List[float], seed: int = 42) -> ScalarizedMOPCSW
         demand_pattern=ENV_PARAMS['demand_pattern']
     )
 
-    base_env.seed(seed)
+    base_env.reset(seed=seed)
 
     # Wrap with scalarization
     scalarized_env = ScalarizedMOPCSWrapper(

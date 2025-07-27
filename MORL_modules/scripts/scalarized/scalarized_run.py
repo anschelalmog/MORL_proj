@@ -17,14 +17,9 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
-from scalarized_trainer import (
-    train_configuration,
-    train_all_configurations,
-    get_configuration_list,
-    validate_configuration,
-    CONFIGURATIONS,
-    DEFAULT_PARAMS
-)
+from MORL_modules.scripts.scalarized.scalarized_trainer import (
+    train_configuration, train_all_configurations,
+    get_configuration_list, validate_configuration, CONFIGURATIONS, DEFAULT_PARAMS)
 
 
 def create_parser() -> argparse.ArgumentParser:

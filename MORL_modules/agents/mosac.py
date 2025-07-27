@@ -20,26 +20,21 @@ from stable_baselines3.common.vec_env import VecEnv
 from stable_baselines3.common.utils import polyak_update, should_collect_more_steps
 from stable_baselines3.common.torch_layers import FlattenExtractor, BaseFeaturesExtractor
 from stable_baselines3.common.preprocessing import get_action_dim
-from agents.monets import SharedFeatureQNet, SeparateQNet
-from  agents.mobuffers import MOReplayBuffer
+from MORL_modules.agents.monets import SharedFeatureQNet, SeparateQNet
+from MORL_modules.agents.mobuffers import MOReplayBuffer
 from typing import ClassVar
 from stable_baselines3.sac.policies import Actor, CnnPolicy, MlpPolicy, MultiInputPolicy, SACPolicy
 from stable_baselines3.common.noise import ActionNoise
-from agents.mo_monitor import MOMonitor
-from agents.mo_env_wrappers import MODummyVecEnv,  MultiObjectiveWrapper
+from MORL_modules.agents.mo_monitor import MOMonitor
+from MORL_modules.agents.mo_env_wrappers import MODummyVecEnv,  MultiObjectiveWrapper
 from stable_baselines3.common.preprocessing import check_for_nested_spaces, is_image_space, is_image_space_channels_first
 #for overriding  _wrap_env
 from stable_baselines3.common.vec_env.patch_gym import _patch_env
 from stable_baselines3.common.env_util import is_wrapped
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import (
-    DummyVecEnv,
-    VecEnv,
-    VecNormalize,
-    VecTransposeImage,
-    is_vecenv_wrapped,
-    unwrap_vec_normalize,
-)
+    DummyVecEnv, VecEnv, VecNormalize,
+    VecTransposeImage, is_vecenv_wrapped, unwrap_vec_normalize)
 
 
 
