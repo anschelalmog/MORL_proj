@@ -20,6 +20,7 @@ from stable_baselines3.common.callbacks import EvalCallback
 
 from MORL_modules.scripts.scalarized.scalarized_trainer import (create_environment,
     CONFIGURATIONS, DEFAULT_PARAMS, load_training_data)
+from MORL_modules.wrappers.dict_to_box_wrapper import DictToBoxWrapper
 
 BASELINE_ALGORITHMS = {
     'ppo': {

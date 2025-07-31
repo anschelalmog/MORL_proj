@@ -32,7 +32,7 @@ from energy_net.dynamics.consumption_dynamics.demand_patterns import DemandPatte
 from MORL_modules.agents.mosac import MOSAC
 from MORL_modules.wrappers.scalarized_mo_pcs_wrapper import ScalarizedMOPCSWrapper
 from MORL_modules.wrappers.mo_pcs_wrapper import MOPCSWrapper
-
+from MORL_modules.wrappers.dict_to_box_wrapper import DictToBoxWrapper
 # ============================================================================
 # CONFIGURATION SETTINGS
 # ============================================================================
@@ -105,10 +105,10 @@ def create_environment(weights: List[float], seed: int = 42) -> ScalarizedMOPCSW
     )
 
     base_env.reset(seed=seed)
-
+    dict_to_box_env = DictToBoxWrapper(base_env)
     # Wrap with scalarization
     scalarized_env = ScalarizedMOPCSWrapper(
-        base_env,
+        dict_to_box_env,
         weights=weights,
         normalize_weights=True,
         log_level='WARNING'
