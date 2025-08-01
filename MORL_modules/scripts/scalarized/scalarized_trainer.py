@@ -29,7 +29,7 @@ from energy_net.market.pricing.cost_types import CostType
 from energy_net.market.pricing.pricing_policy import PricingPolicy
 from energy_net.dynamics.consumption_dynamics.demand_patterns import DemandPattern
 
-from MORL_modules.agents.mosac import MOSAC
+from MORL_modules.agents.mosac import MOSAC, MOSACPolicy
 from MORL_modules.wrappers.scalarized_mo_pcs_wrapper import ScalarizedMOPCSWrapper
 from MORL_modules.wrappers.mo_pcs_wrapper import MOPCSWrapper
 from MORL_modules.wrappers.dict_to_box_wrapper import DictToBoxWrapper
@@ -118,20 +118,34 @@ def create_environment(weights: List[float], seed: int = 42) -> ScalarizedMOPCSW
 
 
 def create_agent(env, log_dir: str, **kwargs) -> MOSAC:
-    """Create MOSAC agent."""
+    """Create MOSAC agent with proper policy configuration."""
 
     params = DEFAULT_PARAMS.copy()
     params.update(kwargs)
 
+    policy_kwargs = {
+        "num_objectives": 4,
+        "net_arch": {
+            "pi": [256, 256],
+            "qf": [256, 256]
+        },
+        "share_features_across_objectives": True,
+        "activation_fn": th.nn.ReLU,
+        "n_critics": 4
+    }
+
+
     model = MOSAC(
-        policy="MlpPolicy",
+        policy=MOSACPolicy,
         env=env,
+        num_objectives=4,
         learning_rate=params['learning_rate'],
         buffer_size=params['buffer_size'],
         batch_size=params['batch_size'],
         device=params['device'],
         verbose=1,
-        tensorboard_log=os.path.join(log_dir, 'tensorboard')
+        tensorboard_log=os.path.join(log_dir, 'tensorboard'),
+        policy_kwargs=policy_kwargs
     )
 
     return model
