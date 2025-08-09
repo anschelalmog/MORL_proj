@@ -22,7 +22,7 @@ echo "Starting PCS agent optimization..."
 python3 -m rl_zoo3.train \
   --algo ppo \
   --env PCS-RLZoo-v0 \
-  --gym-packages energy_net.env.register_envs \
+  --gym-packages energy_net.envs.register_envs \
   --n-timesteps $N_TIMESTEPS \
   -optimize \
   --n-trials $N_TRIALS \

@@ -54,10 +54,10 @@ class MOPCSWrapper(gym.Wrapper):
 
         # Normalization parameters (learned from episodes)
         self.reward_stats = {
-            'economic': {'min': -50.0, 'max': 50.0, 'mean': 0.0, 'std': 10.0},
-            'battery_health': {'min': -2.0, 'max': 1.0, 'mean': 0.0, 'std': 0.5},
-            'grid_support': {'min': -1.0, 'max': 1.0, 'mean': 0.0, 'std': 0.3},
-            'autonomy': {'min': 0.0, 'max': 1.0, 'mean': 0.5, 'std': 0.3}
+            'economic': {'min': -10, 'max': 10, 'mean': -8.1, 'std': 0.1},
+            'battery_health': {'min': -5, 'max': 5, 'mean': -0.057, 'std': 0.001},
+            'grid_support': {'min': -0.02, 'max': 0.02, 'mean': -0.057, 'std': 0.001},
+            'autonomy': {'min': -1.0, 'max': 1.0, 'mean': 0.5, 'std': 0.3}
         }
 
         # Episode tracking
@@ -168,13 +168,16 @@ class MOPCSWrapper(gym.Wrapper):
     def _compute_battery_health_reward(self, info: Dict) -> float:
         """Compute battery health objective reward."""
         battery_level = self._get_battery_level()
-
+        state_change = abs(battery_level - self.prev_battery_level)
         if battery_level is None or self.prev_battery_level is None:
             return 0.0
 
         # Penalty for large state changes (cycling degradation)
-        state_change = abs(battery_level - self.prev_battery_level)
-        cycling_penalty = -0.1 * (state_change / 10.0)  # Normalize by reasonable change
+        if self.battery_manager is not None:
+            charge_rate_max = self.battery_manager.charge_rate_max
+        else:
+            charge_rate_max = 10.0
+        cycling_penalty = -0.1 * (state_change / charge_rate_max)  # Normalize by reasonable change
 
         # Penalty for extreme states (calendar aging)
         if self.battery_manager is not None:
@@ -228,8 +231,10 @@ class MOPCSWrapper(gym.Wrapper):
 
             if len(self.price_history) > 10:
                 price_baseline = np.mean(self.price_history[-10:])
-                price_deviation = (avg_price - price_baseline) / price_baseline
-
+                if price_baseline != 0:
+                    price_deviation = (avg_price - price_baseline) / price_baseline
+                else:
+                    price_deviation = 0
                 # If prices are high (positive deviation), reward for selling (negative net_exchange)
                 # If prices are low (negative deviation), reward for buying (positive net_exchange)
                 grid_support_reward = -net_exchange * price_deviation
@@ -245,24 +250,13 @@ class MOPCSWrapper(gym.Wrapper):
 
         if production is None or consumption is None:
             return 0.0
-
-        # Autonomy is the fraction of consumption met by own production
-        if consumption > 0:
-            # How much of our consumption is covered by our production
-            self_consumption_ratio = min(production, consumption) / consumption
-
-            # Bonus for having excess production (can sell to grid)
-            if production > consumption:
-                excess_bonus = min(0.2, (production - consumption) / consumption * 0.1)
-            else:
-                excess_bonus = 0.0
-
-            autonomy_reward = self_consumption_ratio + excess_bonus
+        if production == 0 and consumption == 0:
+            return 0.0
         else:
-            # If no consumption, autonomy is perfect if we have no waste
-            autonomy_reward = 1.0 if production == 0 else 0.5
+            return (production - consumption) / (production + comsumption)
 
-        return np.clip(autonomy_reward, 0.0, 1.0)
+
+
 
     def _normalize_reward(self, reward: float, objective: str) -> float:
         """Normalize reward to standard range if enabled."""
@@ -321,18 +315,19 @@ class MOPCSWrapper(gym.Wrapper):
         # 1. Economic objective
         economic_reward = self._compute_economic_reward(reward, info)
         mo_rewards[0] = self._normalize_reward(economic_reward, 'economic')
-
+        #mo_rewards[0] = economic_reward
         # 2. Battery health objective
         battery_health_reward = self._compute_battery_health_reward(info)
         mo_rewards[1] = self._normalize_reward(battery_health_reward, 'battery_health')
-
+        #mo_rewards[1] = battery_health_reward
         # 3. Grid support objective
         grid_support_reward = self._compute_grid_support_reward(info)
         mo_rewards[2] = self._normalize_reward(grid_support_reward, 'grid_support')
-
+        #mo_rewards[2] = grid_support_reward
         # 4. Energy autonomy objective
         autonomy_reward = self._compute_autonomy_reward(info)
         mo_rewards[3] = self._normalize_reward(autonomy_reward, 'autonomy')
+        #mo_rewards[3] = autonomy_reward
 
         # Update episode tracking
         self.current_episode_rewards += mo_rewards
@@ -355,7 +350,6 @@ class MOPCSWrapper(gym.Wrapper):
             'episode_mo_totals': self.current_episode_rewards.copy(),
             'step_count': self.step_count
         })
-
         # Log episode completion
         if terminated or truncated:
             self.logger.info(f"Episode {self.episode_count} completed with {self.step_count} steps")

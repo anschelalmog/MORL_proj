@@ -2,7 +2,7 @@
 """
 Direct callback module for RL-Zoo3
 """
-from energy_net.utils.callbacks import ActionTrackingCallback
+from callbacks import ActionTrackingCallback
 import os
 
 class PlotCallback(ActionTrackingCallback):

@@ -4,3 +4,5 @@ hvwfg-1.0.2==1.0.2
 arguments==76
 future==1.0.0
 consoleprinter==95
+scikit-learn==1.2.2
+numpy==1.25.2

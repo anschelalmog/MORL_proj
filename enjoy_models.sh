@@ -93,8 +93,8 @@ cat > tmp_combined_eval.py << EOF
 import gymnasium as gym
 import numpy as np
 from stable_baselines3 import PPO
-import energy_net.env.register_envs
-from energy_net.env import EnergyNetV0
+import energy_net.envs.register_envs
+from energy_net.envs import EnergyNetV0
 import logging
 
 # Set up logging
