@@ -139,3 +139,6 @@ hyperparams/optimized/
 /energy_net/dynamics/transmission_dynamics/transmission_dynamic.py
 /energy_net/controllers/unified_metrics_handler.py
 /energy_net/utils/utils.py
+/MORL_modules/externals/Hyper-MORL/
+/MORL_modules/externals/energy-net/
+/MORL_proj/MORL_modules/results/
