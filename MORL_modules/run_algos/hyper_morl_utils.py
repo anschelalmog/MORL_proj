@@ -314,6 +314,34 @@ def advanced_pareto_pca_projection(data, path, standardize=True, plot_variance=T
     # Get 3D projection
     projected_3d = pca.transform(data_processed)[:, :3]
 
+    # Save PCA components to pca.txt file
+    pca_file_path = os.path.join(os.path.dirname(path), 'pca.txt')
+    with open(pca_file_path, 'w') as f:
+        f.write("PCA Components Analysis\n")
+        f.write("=" * 50 + "\n\n")
+        f.write(f"Data shape: {data.shape}\n")
+        f.write(f"Number of components: {pca.n_components_}\n")
+        f.write(f"Total explained variance: {pca.explained_variance_ratio_.sum():.4f}\n\n")
+
+        f.write("Principal Components (loadings):\n")
+        f.write("-" * 30 + "\n")
+        for i in range(pca.n_components_):
+            f.write(f"PC{i + 1} (explains {pca.explained_variance_ratio_[i]:.4f} variance):\n")
+            for j in range(pca.components_.shape[1]):
+                f.write(f"  Feature {j + 1}: {pca.components_[i, j]:.6f}\n")
+            f.write("\n")
+
+        f.write("Explained Variance Ratios:\n")
+        f.write("-" * 25 + "\n")
+        for i, ratio in enumerate(pca.explained_variance_ratio_):
+            f.write(f"PC{i + 1}: {ratio:.6f}\n")
+
+        f.write("\nCumulative Explained Variance:\n")
+        f.write("-" * 30 + "\n")
+        cumulative = np.cumsum(pca.explained_variance_ratio_)
+        for i, cum_ratio in enumerate(cumulative):
+            f.write(f"PC1-PC{i + 1}: {cum_ratio:.6f}\n")
+
     # Print information
     print(f"Pareto  Data shape: {data.shape} -> {projected_3d.shape}")
     print(f"Pareto front First 3 components explain {pca.explained_variance_ratio_[:3].sum():.2%} of variance")
@@ -376,6 +404,19 @@ def advanced_pareto_pca_projection(data, path, standardize=True, plot_variance=T
         # Adjust the layout to provide more space around the plot
         plt.subplots_adjust(left=0.05, bottom=0.05, right=0.9, top=0.9)
 
+        # Add PCA components information below the axis
+        component_text = "PCA Components:\n"
+        for i in range(min(3, pca.n_components_)):
+            component_text += f"PC{i + 1}: ["
+            component_text += ", ".join([f"{val:.3f}" for val in pca.components_[i, :]])
+            component_text += f"] (var: {pca.explained_variance_ratio_[i]:.3f})\n"
+
+        # Add text below the plot
+        # Add text at the top right of the plot
+        fig.text(0.72, 0.95, component_text, fontsize=10, family='monospace',
+                bbox=dict(boxstyle="round,pad=0.3", facecolor="lightgray", alpha=0.7),
+                verticalalignment='top', horizontalalignment='right')
+
         # Optional: Set equal aspect ratio for better visualization
         # ax.set_box_aspect([1,1,1])
 
@@ -401,6 +442,26 @@ def draw_3d_front(objs, path):
     plt.clf()
 
 
+def draw_4d_front(objs, path):
+    # Plot first two objectives
+    plt.figure()
+    plt.plot(objs[:, 0], objs[:, 1], 'o')
+    plt.xlabel('economic reward')
+    plt.ylabel('battery_health')
+    plt.title('Objectives 1 vs 2')
+    plt.savefig(os.path.join(path, 'obj_1_2.png'))
+    plt.clf()
+
+    # Plot last two objectives
+    plt.figure()
+    plt.plot(objs[:, 2], objs[:, 3], 'o')
+    plt.xlabel('grid support')
+    plt.ylabel('autonomy')
+    plt.title('Objectives 3 vs 4')
+    plt.savefig(os.path.join(path, 'obj_3_4.png'))
+    plt.clf()
+
+
 def save_result(path, objs, hv, time_cost, model, normalization_rec):
     import pickle
     obj_num = objs.shape[1]
@@ -408,7 +469,6 @@ def save_result(path, objs, hv, time_cost, model, normalization_rec):
     os.makedirs(path, exist_ok=True)
     print(path)
     # save ep policies & env_param
-    breakpoint()
     torch.save(model.state_dict(), os.path.join(path, 'policy.pt'))
     with open(os.path.join(path, 'normalization.pkl'), 'wb') as fp:
         pickle.dump(normalization_rec, fp)
@@ -421,9 +481,11 @@ def save_result(path, objs, hv, time_cost, model, normalization_rec):
     # draw
     if obj_num == 2:
         draw_2d_front(objs, os.path.join(path, 'ouput.png'))
-    if obj_num == 3:
+    elif obj_num == 3:
         draw_3d_front(objs, os.path.join(path, 'ouput.png'))
     else:
+        if obj_num == 4:
+            draw_4d_front(objs, path)
         advanced_pareto_pca_projection(objs, path=os.path.join(path, 'pareto_pca.png'), standardize=False,
                                        plot_variance=False, plot_3d=True)
 
@@ -461,3 +523,73 @@ class NormalizationRecorder:
             obj = np.concatenate(normalization_data['obj_data'], 0)
             self.norm['ob_rms'].update(obs)
             self.norm['obj_rms'].update(obj)
+
+
+def extract_all_info(path):
+    """
+    Extract all information from the obj.txt file including hv, time, and all objectives.
+
+    Args:
+        file_path: Path to the obj.txt file
+
+    Returns:
+        A dictionary containing hv, time, and all objectives as a numpy array
+    """
+    if not os.path.exists(os.path.join(path, 'objs.txt')):
+        raise FileNotFoundError(f"The file {os.path.join(path, 'objs.txt')} does not exist.")
+
+    info = {}
+    objectives = []
+
+    with open(os.path.join(path, 'objs.txt'), 'r') as f:
+        # Extract hv and time
+        hv_line = next(f).strip()
+        time_line = next(f).strip()
+
+        # Parse hv and time values
+        info['hv'] = float(hv_line.split('=')[1])
+        info['time'] = float(time_line.split('=')[1])
+
+        # Process the objective lines
+        for line in f:
+            values = [float(val) for val in line.strip().split(',')]
+            objectives.append(values)
+
+    info['objectives'] = np.array(objectives)
+    return info
+
+
+def get_first_three_objectives(objectives):
+    """
+    Extract only the first three objectives from each set.
+
+    Args:
+        objectives: numpy array of objective values
+
+    Returns:
+        numpy array with only the first three objectives from each set
+    """
+    # If objectives has fewer than 3 columns, return as is
+    if objectives.shape[1] < 3:
+        return objectives
+    else:
+        return objectives[:, :3]
+
+def aditional_analysis_from_save_results_3d_hv(path):
+    """
+    Save the 3d pareto front for specified path from now.
+    fonction to get sditional information from saved results.
+
+    Args:
+        path (str): The directory where the data are.
+    """
+    info = extract_all_info(path);
+    # Get first three objectives
+    first_three = get_first_three_objectives(info['objectives'])
+    hyper_volume_3d  = cal_hv(get_nondominated(first_three))
+    with open(os.path.join(path, '3D_pareto_volume.txt'), 'w') as fp:
+        fp.write('3d_hv={:.2f}\n'.format(hyper_volume_3d))
+    return info['time'],hyper_volume_3d
+    # Additional saving logic can be added here if needed
+    # For example, saving model weights, normalization parameters, etc.
+

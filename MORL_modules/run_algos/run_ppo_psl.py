@@ -13,7 +13,7 @@ sys.path.append(os.path.join(project_root, 'MORL_modules/externals/Hyper-MORL/Hy
 sys.path.append(os.path.join(project_root, 'MORL_modules/externals/Hyper-MORL/'))
 sys.path.append(os.path.join(project_root, 'MORL_modules/externals/Hyper-MORL/externals/baselines/'))
 sys.path.append(os.path.join(project_root, 'MORL_modules/externals/Hyper-MORL/externals/pytorch-a2c-ppo-acktr-gail/'))
-
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'energy-net'))
 from arguments import get_parser
 import ppo_psl
 import torch
@@ -70,8 +70,8 @@ def main():
         '--gae-lambda', '0.95',
         '--entropy-coef', '0',
         '--value-loss-coef', '0.5',
-        '--num-steps', '2048',
-        '--num-processes', '1',
+        '--num-steps', '2048',#2048',
+        '--num-processes', '4',
         '--ppo-epoch', '10',
         '--num-mini-batch', '32',
         '--use-proper-time-limits',

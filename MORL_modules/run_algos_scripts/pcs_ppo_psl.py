@@ -9,10 +9,13 @@ import random
 from multiprocessing import Process, Queue, current_process, freeze_support
 import argparse
 import torch
-
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(os.path.dirname(current_dir))
+
+#sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'energy-net'))
 sys.path.append(project_root)
+#sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'energy-net'))
+
 #sys.path.append(os.path.join(project_root, 'MORL_modules'))
 
 torch.set_num_threads(1)
@@ -31,9 +34,9 @@ for k in range(task_num):
     for i in range(args.num_seeds):
         seed = random.randint(0, 1000000)
         command_str = 'python MORL_modules/run_algos/run_ppo_psl.py '\
-                '--env-name MO-EnergyNet-v0 '\
+                '--env-name MO_PCSEnergyNet '\
                 '--seed {} '\
-                '--num-env-steps  30000000  '\
+                '--num-env-steps 30000000 '\
                 '--eval-num 1 '\
                 '--obj-rms '\
                 '--ob-rms '\
@@ -46,7 +49,7 @@ for k in range(task_num):
         '--reset-logstd '\
         '--W-variance 0 '\
         '--alpha {} '\
-        '--save-dir {}/Hyper-MORL/4-obj{}/{}'\
+        '--save-dir {}/Hyper-MORL/PCS/4-obj{}/{}'\
             .format(0.15, './MORL_modules/results', exp_name, i)
         commands.append(cmd)
 

@@ -5,7 +5,7 @@ if not hasattr(np, 'bool'):
 
 
 import pytest
-
+import logging
 import torch as th
 import gymnasium as gym
 from gymnasium import spaces
@@ -18,6 +18,7 @@ import pdb
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(os.path.dirname(current_dir))
 sys.path.append(project_root)
+#sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'energy-net'))
 sys.path.append(os.path.join(project_root, 'MORL_modules'))
 print(project_root)
 print(current_dir)
@@ -240,9 +241,11 @@ def create_energy_net_env(**kwargs):
 
     default_kwargs = {
 
-        'pricing_policy': PricingPolicy.QUADRATIC,
+        'pricing_policy': PricingPolicy.ONLINE,
         'demand_pattern': DemandPattern.SINUSOIDAL,
         'cost_type': CostType.CONSTANT,
+        'pcs_unit_config_path':"MORL_modules/configs/pcs_unit_config.yaml",
+        "use_dispatch_action' :True,
     }
 
     default_kwargs.update(kwargs)
@@ -260,6 +263,56 @@ def create_energy_net_env_gym_for_psl(**kwargs):
 
     return gym_env
 
+def create_pcs_energy_net_env_from_factory(**kwargs):
+    """Create PCS EnergyNet environment using the make_pcs_env_zoo factory function."""
+    from energy_net.envs.pcs_env import make_pcs_env_zoo
+    kwargs = {
+
+        'pricing_policy': PricingPolicy.ONLINE,
+        'demand_pattern': DemandPattern.SINUSOIDAL,
+        'cost_type': CostType.CONSTANT,
+    }
+    default_kwargs = {
+
+        'monitor': True,
+        'seed': 42,
+        'log_dir': "MORL_modules/logs/pcs",
+
+        'iso_policy_path' : "logs/iso/ppo/run_1/ppo/ISO-RLZoo-v0_3/best_model.zip",
+        'iso_policy_hyperparams_path':"rl-baselines3-zoo/hyperparams/ppo/ISO-RLZoo-v0.yml",
+        'pricing_policy': PricingPolicy.ONLINE,
+        'demand_pattern': DemandPattern.SINUSOIDAL,
+        'cost_type': CostType.CONSTANT,
+    }
+
+    # Update with any provided kwargs
+    default_kwargs.update(kwargs)
+
+    # Create PCS environment using factory
+    pcs_env = make_pcs_env_zoo(**default_kwargs)
+
+    # Wrap with MOPCSWrapper
+    mo_wrapper = MOPCSWrapper(
+        pcs_env,
+        num_objectives=4,
+        reward_weights=np.ones(4) / 4,
+        normalize_rewards=False,
+        log_level=logging.WARNING
+    )
+
+    return mo_wrapper
+
+
+def create_pcs_energy_net_env_from_factory_for_psl(**kwargs):
+    """Create PCS EnergyNet environment from factory for Gym (wrapped from Gymnasium)."""
+    kwargs.update({'log_dir': "MORL_modules/logs/pcs_psl"})
+    # Create the gymnasium environment using factory
+    gymnasium_env = create_pcs_energy_net_env_from_factory(**kwargs)
+    # Wrap it to make it compatible with gym
+    gym_env = GymnasiumToGymWrapperPSL(gymnasium_env)
+
+    return gym_env
+
 
 # Register with Gymnasium
 register(
@@ -271,6 +324,16 @@ register(
 gym_register(
     id="MO-EnergyNet-v0",
     entry_point="MORL_modules.run_algos.create_energy_net_env:create_energy_net_env_gym_for_psl",
+)
+
+register(
+    id="MO_PCSEnergyNet",
+    entry_point="MORL_modules.run_algos.create_energy_net_env:create_pcs_energy_net_env_from_factory",
+)
+
+gym_register(
+    id="MO_PCSEnergyNet",
+    entry_point="MORL_modules.run_algos.create_energy_net_env:create_pcs_energy_net_env_from_factory_for_psl",
 )
 
 
