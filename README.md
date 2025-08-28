@@ -1,348 +1,306 @@
-# EnergyNetZoo: Running Multi-Agent Reinforcement Learning for Smart Grid Simulation
+# EnergyNet Multi-Objective Reinforcement Learning (MORL)
 
-This project focuses on running EnergyNet using various RL methods. 
-EnergyNet is a framework for simulating smart grid environments and training reinforcement learning agents to optimize grid operations. The framework features a multi-agent environment with two key strategic entities: the Independent System Operator (ISO) and Power Control System (PCS) agents.
+An extension of the EnergyNet smart grid simulation framework that implements Multi-Objective Reinforcement Learning algorithms for Power Control System (PCS) optimization.
 
-## System Overview
+## Table of Contents
 
-### Key Components
+- [Overview](#overview)
+- [Key Features](#key-features)
+- [Multi-Objective Framework](#multi-objective-framework)
+- [Algorithms](#algorithms)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Results](#results)
+- [Project Structure](#project-structure)
+- [Configuration](#configuration)
+- [Further Work](#further-work)
+- [References](#references)
 
-1. **Independent System Operator (ISO)**: Sets energy prices and manages dispatch commands for the grid
-2. **Power Control System (PCS)**: Controls battery storage systems by deciding when to charge/discharge in response to price signals
-3. **EnergyNetV0 Environment**: Multi-agent environment that handles the sequential interactions between ISO and PCS
-4. **Alternating Training Framework**: Enables stable training of multiple agents through an iterative process
+## Overview
 
-### Training Workflow
+This project extends the original EnergyNet framework to support Multi-Objective Reinforcement Learning for Power Control System (PCS) agents.
+Traditional RL optimizes a single scalar reward, but real-world energy systems involve multiple conflicting objectives. 
+This implementation provides Pareto-optimal policies that allow operators to make real-time trade-offs between competing objectives.
 
-The system uses an alternating training approach where:
+### Problem Statement
 
-1. First, the ISO agent is trained with a fixed (default) PCS policy
-2. Then, the PCS agent is trained with the fixed ISO policy from step 1
-3. Next, the ISO agent is retrained with the fixed PCS policy from step 2
-4. Steps 2-3 are repeated for a specified number of iterations
+The Power Control System faces multiple conflicting objectives:
+- **Economic Profit**: Maximizing energy arbitrage profits
+- **Battery Health**: Minimizing battery degradation and extending lifetime  
+- **Grid Support**: Providing stability services to the electrical grid
+- **Energy Autonomy**: Maintaining energy independence
 
-This approach helps find stable equilibrium policies between the two agents, similar to game-theoretic approaches for multi-agent systems.
+Single-objective approaches cannot capture the complex trade-offs between these objectives. This project implements state-of-the-art MORL algorithms to learn a set of Pareto-optimal policies.
+
+## Key Features
+
+- **Multi-Objective SAC (MOSAC)**: Utility-based approach with multi-head critics
+- **Hypernetwork-based MORL**: Approximates the entire Pareto front 
+- **Pareto Front Visualization**: 2D/3D projections and PCA analysis
+- **Baseline Comparisons**: Evaluation against standard RL algorithms
+- **Flexible Scalarization**: Support for different preference weights
+
+## Multi-Objective Framework
+
+### Four Objectives
+
+1. **Economic Profit** (`r₁`): Energy arbitrage revenue from buying low and selling high
+2. **Battery Health** (`r₂`): Penalty for actions that degrade battery life
+3. **Grid Support** (`r₃`): Rewards for providing grid stability services  
+4. **Energy Autonomy** (`r₄`): Maintaining energy self-sufficiency
+
+### Pareto Optimality
+
+A policy π is Pareto optimal if no objective can be improved without degrading at least one other objective. The Pareto front represents all optimal trade-off solutions.
+
+![Pareto Front Concept](assets/pareto_concept.png)
+
+## Algorithms
+
+### 1. Multi-Objective SAC (MOSAC)
+
+**Architecture**: Extends Soft Actor-Critic with separate critics for each objective.
+
+- **Multi-head Critics**: Four separate critic networks, one per objective
+- **Vector Rewards**: Processes reward vectors instead of scalar rewards
+- **Shared Actor**: Single policy network learns from all objectives
+- **Scalarization**: Uses weighted linear scalarization for training
+
+![MOSAC Architecture](assets/mosac_architecture.png)
+
+### 2. Hypernetwork-based MORL (Hyper-MORL)
+
+**Architecture**: Uses a hypernetwork to approximate the entire Pareto front.
+
+- **Hypernetwork**: Maps preference vectors ω ∈ Ω to policy parameters θ ∈ Θ  
+- **Preference Conditioning**: Policy conditioned on user preferences
+- **Pareto Set Learning**: Approximates the continuous Pareto front
+
+![Hypernetwork Architecture](assets/hypernetwork_architecture.png)
 
 ## Installation
 
 ### Prerequisites
 
 - Python 3.8+
-- pip package manager
+- EnergyNet framework
+- PyTorch
+- Stable-Baselines3
 
 ### Setup
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/CLAIR-LAB-TECHNION/energy-net-zoo.git
-   cd energy-net-zoo
-   ```
-
-2. Install dependencies:
-   ```bash
-   pip install -e .
-   ```
-
-3. Install RL-Zoo3 (if not automatically installed):
-   ```bash
-   pip install rl_zoo3
-   ```
-
-## Running Training
-
-### Using the Direct Training Script
-
-The easiest way to train both agents is to use the provided training script:
-
 ```bash
-chmod +x train_rlzoo_direct.sh
-./train_rlzoo_direct.sh
+# Clone the repository
+git clone https://github.com/your-repo/energy-net-morl.git
+cd energy-net-morl
+
+# Install dependencies
+pip install -e .
+
+# Install EnergyNet (if not already installed)
+pip install -e ../energy-net
 ```
 
-This script implements an alternating training approach where:
+## Usage
 
-1. **Initial ISO Training**:
-   - Trains the ISO agent with a default PCS policy
-   - Saves the model in `logs/iso/ppo/run_1/`
+### Training MOSAC
 
-2. **Alternating Training**:
-   - Trains PCS agent with fixed ISO policy
-   - Trains ISO agent with fixed PCS policy
-   - Repeats for specified number of iterations
+```bash
+# Train MOSAC with shared critics
+python train_mosac.py \
+    --algorithm mosac_shared \
+    --timesteps 500000 \
+    --learning-rate 3e-4 \
+    --objectives economic,battery,grid,autonomy
 
-3. **Key Parameters** (in the script):
-   ```bash
-   # Number of training iterations
-   ITERATIONS=5
-   
-   # Steps per training iteration
-   TIMESTEPS=50
-   
-   # Random seed for reproducibility
-   SEED=422
-   
-   # Environment configuration
-   BASE_ENV_KWARGS=(
-     "cost_type:'CONSTANT'"    # Fixed operating costs
-     "pricing_policy:'Online'" # Dynamic pricing
-     "demand_pattern:'CONSTANT'" # Steady demand
-     "use_dispatch_action:True"  # ISO can set dispatch
-   )
-   ```
+# Train MOSAC with separate critics  
+python train_mosac.py \
+    --algorithm mosac_separate \
+    --timesteps 500000 \
+    --learning-rate 3e-4
+```
 
-4. **Output**:
-   - Models saved in `logs/iso/ppo/run_1/` and `logs/pcs/ppo/run_1/`
-   - Training plots in respective model directories
-   - TensorBoard logs in `logs/iso/tensorboard/` and `logs/pcs/tensorboard/`
+### Training Hyper-MORL
 
-### Customizing Training
+```bash
+# Train Hypernetwork-based MORL
+python train_hypermorl.py \
+    --timesteps 30000000 \
+    --learning-rate 5e-4 \
+    --num-processes 4 \
+    --warmup-steps 2048
+```
 
-You can modify the training process by editing `train_rlzoo_direct.sh`:
+### Evaluation and Visualization
 
-1. **Change Training Duration**:
-   ```bash
-   ITERATIONS=10  # More training iterations
-   TIMESTEPS=100  # More steps per iteration
-   ```
+```bash
+# Evaluate trained models
+python evaluate_morl.py \
+    --model-path models/mosac_shared.zip \
+    --algorithm mosac \
+    --episodes 100
 
-2. **Modify Environment Settings**:
-   ```bash
-   BASE_ENV_KWARGS=(
-     "cost_type:'VARIABLE'"     # Variable costs
-     "pricing_policy:'QUADRATIC'" # Quadratic pricing
-     "demand_pattern:'SINUSOIDAL'" # Cyclic demand
-     "use_dispatch_action:True"
-   )
-   ```
+# Generate Pareto front plots
+python plot_pareto_front.py \
+    --results-dir results/ \
+    --output-dir plots/
+```
 
-3. **Adjust Hyperparameters**:
-   Edit the YAML files in `rl-baselines3-zoo/hyperparams/ppo/`:
-   ```yaml
-   ISO-RLZoo-v0:
-     n_steps: 1024        # More steps per update
-     batch_size: 128      # Larger batch size
-     learning_rate: 1e-4  # Different learning rate
-   ```
+## Results
 
-4. **Change Evaluation Frequency**:
-   ```bash
-   --eval-freq 100        # Evaluate every 100 steps
-   --eval-episodes 20     # More evaluation episodes
-   ```
+### Algorithm Performance Comparison
 
-### Training Process Flow
+| Algorithm | Original Reward | Economic + Battery | All Objectives |
+|-----------|----------------|-------------------|---------------|
+| SAC | 23.10 | 11.25 | 16.22 |
+| PPO | 26.92 | 12.48 | 14.30 |  
+| TD3 | 34.63 | 19.40 | 6.58 |
+| **MOSAC (Shared)** | -- | -- | **28.00** |
+| **MOSAC (Separate)** | -- | -- | **18.50** |
 
-1. **Setup**:
-   - Creates necessary directories
-   - Sets up hyperparameter files
-   - Configures environment parameters
+*Values represent mean rewards over 3 random seeds.*
 
-2. **Initial ISO Training**:
-   - Trains ISO agent with default PCS policy
-   - Saves best model
+### MOSAC Results
 
-3. **Alternating Training Loop**:
-   - For each iteration:
-     1. Train PCS with fixed ISO policy
-     2. Save PCS model
-     3. Train ISO with fixed PCS policy
-     4. Save ISO model
-     5. Update model paths for next iteration
+#### Shared Critics Variant
+- **Convergence**: After 500,000 steps
+- **Final Performance**: 28 scalarized reward
+- **Advantage**: Higher performance through shared feature learning
 
-4. **Monitoring**:
-   - Plots saved in model directories
-   - TensorBoard logs for metrics
-   - Evaluation results every `eval_freq` steps
+![MOSAC Shared Learning Curve](assets/mosac_shared_learning.png)
 
-### Troubleshooting Training
+#### Separate Critics Variant  
+- **Convergence**: After 100,000 steps (faster)
+- **Final Performance**: 18.5 scalarized reward
+- **Advantage**: More stable but lower final performance
 
-1. **Model Not Found**:
-   - Check if training completed successfully
-   - Verify model paths in the script
-   - Look for error messages in logs
+![MOSAC Separate Learning Curve](assets/mosac_separate_learning.png)
 
-2. **Training Instability**:
-   - Adjust learning rate in hyperparameter files
-   - Modify batch size or number of steps
-   - Check reward scaling in environment
+### Hyper-MORL Results
 
-3. **Memory Issues**:
-   - Reduce batch size
-   - Decrease number of environments
-   - Lower evaluation frequency
+- **Convergence**: After 100,000 steps
+- **3D Hypervolume**: 758.65
+- **Pareto Front**: Successfully approximated in 4D objective space
+
+![Pareto Front 2D](assets/pareto_front_2d.png)
+*Pareto front projection on economic reward vs battery health*
+
+![Pareto Front 3D](assets/pareto_front_3d.png)  
+*3D projection of Pareto front (first three objectives)*
+
+![Hypervolume Progress](assets/hypervolume_progress.png)
+*3D hypervolume convergence over training episodes*
+
+### Principal Component Analysis
+
+PCA analysis reveals the relationships between objectives:
+
+| Component | PC1 | PC2 | PC3 | PC4 |
+|-----------|-----|-----|-----|-----|
+| **Explained Variance** | 0.9945 | 0.0050 | 0.0006 | 0.0000 |
+| Economic Reward | -0.0576 | 0.9683 | 0.2431 | 0.0000 |
+| Battery Health | -0.0009 | -0.2436 | 0.9699 | 0.0000 |  
+| Grid Support | 0.9983 | 0.0557 | 0.0149 | 0.0000 |
+| Autonomy | 0.0000 | 0.0000 | 0.0000 | 1.0000 |
+
+**Key Findings**:
+- Most conflicting objectives: Battery Health vs Economic Reward
+- Most influential in Pareto front: Grid Support, Economic Reward, Battery Health
+
+![PCA Analysis](assets/pca_analysis.png)
+
+## Project Structure
+
+```
+energy-net-morl/
+├── algorithms/
+│   ├── mosac.py              # Multi-Objective SAC implementation
+│   ├── hypermorl.py          # Hypernetwork-based MORL  
+│   └── baseline_wrapper.py   # Scalarization wrapper for baselines
+├── environments/
+│   ├── mo_energy_env.py      # Multi-objective environment wrapper
+│   └── objectives.py         # Objective function definitions
+├── training/
+│   ├── train_mosac.py        # MOSAC training script
+│   ├── train_hypermorl.py    # Hyper-MORL training script
+│   └── train_baselines.py    # Baseline training script  
+├── evaluation/
+│   ├── evaluate_morl.py      # Model evaluation
+│   ├── plot_pareto_front.py  # Pareto front visualization
+│   └── metrics.py            # MORL evaluation metrics
+├── configs/
+│   ├── mosac_config.yaml     # MOSAC hyperparameters
+│   └── hypermorl_config.yaml # Hyper-MORL hyperparameters
+├── assets/                   # Plots and figures
+└── README.md
+```
 
 ## Configuration
 
-### Configuration Files
+### Environment Configuration
 
-The system uses three primary configuration files:
-
-1. **environment_config.yaml**: General environment settings
-   - Time parameters (step duration, max steps)
-   - Pricing parameters
-   - Demand prediction parameters
-
-2. **iso_config.yaml**: ISO-specific settings
-   - Pricing ranges and defaults
-   - Dispatch configuration
-   - Observation and action space parameters
-
-3. **pcs_unit_config.yaml**: PCS-specific settings
-   - Battery parameters (capacity, charge/discharge rates)
-   - Observation and action space parameters
-   - Consumption and production unit settings
-
-### Environment Parameters
-
-When creating environments, you can specify various parameters:
-
-```python
-# Example of creating an environment with custom parameters
-env = EnergyNetV0(
-    cost_type=CostType.CONSTANT,         # How grid costs are calculated
-    pricing_policy=PricingPolicy.ONLINE,  # How prices are determined
-    demand_pattern=DemandPattern.SINUSOIDAL, # Demand pattern over time
-    num_pcs_agents=1,                    # Number of PCS units
-    dispatch_config={                     # Dispatch configuration
-        "use_dispatch_action": True,
-        "default_strategy": "PROPORTIONAL"
-    }
-)
-```
-
-Available options include:
-
-1. **Cost Types**:
-   - `CONSTANT`: Fixed operating costs
-   - `VARIABLE`: Costs that vary with demand
-   - `TIME_OF_USE`: Time-dependent costs
-
-2. **Pricing Policies**:
-   - `ONLINE`: Dynamic pricing based on current conditions
-   - `QUADRATIC`: Prices following quadratic functions
-   - `CONSTANT`: Fixed prices
-
-3. **Demand Patterns**:
-   - `SINUSOIDAL`: Smooth cyclic demand pattern
-   - `RANDOM`: Randomized demand
-   - `PERIODIC`: Repeating patterns
-   - `SPIKES`: Demand with occasional spikes
-
-## Environment Wrappers
-
-The system uses several wrappers to adapt the multi-agent environment for single-agent training:
-
-1. **ISOEnvWrapper**: Wraps the environment for ISO training, handling PCS actions automatically
-   - Exposes only ISO observation and action spaces
-   - Uses a fixed PCS policy to generate PCS actions
-   - Calculates ISO-specific rewards
-
-2. **PCSEnvWrapper**: Wraps the environment for PCS training, handling ISO actions automatically
-   - Exposes only PCS observation and action spaces
-   - Uses a fixed ISO policy to generate ISO actions
-   - Calculates PCS-specific rewards
-
-3. **RescaleAction**: Scales actions between neural network output range [-1, 1] and environment action space
-
-## Monitoring and Visualization
-
-The framework includes callbacks for monitoring training progress:
-
-1. **PlotCallback**: Tracks and visualizes agent actions during training
-   - Automatically detects agent type from environment ID
-   - Creates plots based on the current iteration
-   - Saves plots to appropriate directories based on agent type
-
-Logs and plots are saved in:
-- `logs/iso/`: ISO agent logs and plots
-- `logs/pcs/`: PCS agent logs and plots
-- `logs/tensorboard/`: TensorBoard logs for both agents
-
-## Reward Functions
-
-Each agent has a specialized reward function:
-
-1. **ISO Reward**: Balances multiple objectives
-   - Minimizes reserve costs
-   - Minimizes dispatch costs 
-   - Avoids demand shortfalls
-   - Maintains stable prices
-
-2. **PCS Reward**: Cost-based rewards
-   - Buys energy when prices are low
-   - Sells energy when prices are high
-   - Maximizes profit from energy arbitrage
-
-## Advanced Usage
-
-### Custom Environment Creation
-
-For fine-grained control, you can create and wrap environments manually:
-
-```python
-from energy_net.env import EnergyNetV0
-from stable_baselines3 import PPO
-from alternating_wrappers import ISOEnvWrapper, PCSEnvWrapper
-
-# Create base environment
-env = EnergyNetV0(
-    pricing_policy="ONLINE",
-    demand_pattern="SINUSOIDAL",
-    cost_type="CONSTANT"
-)
-
-# Load fixed policy
-pcs_policy = PPO.load("logs/pcs/ppo/run_1/PCS-RLZoo-v0.zip")
-
-# Create wrapped environment for ISO training
-wrapped_env = ISOEnvWrapper(env, pcs_policy=pcs_policy)
-```
-
-### Customizing Hyperparameters
-
-You can modify the RL algorithm hyperparameters by editing the YAML files created in the `rl-baselines3-zoo/hyperparams/ppo/` directory:
+The multi-objective environment can be configured with different settings:
 
 ```yaml
-# Example for ISO agent
-ISO-RLZoo-v0:
-  normalize: "{'norm_obs': True, 'norm_reward': True}"
-  n_envs: 1
-  n_timesteps: !!float 1e6
-  policy: 'MlpPolicy'
-  n_steps: 2048
-  batch_size: 64
-  gae_lambda: 0.95
-  gamma: 0.99
-  n_epochs: 10
-  ent_coef: 0.0
-  learning_rate: !!float 3e-4
-  clip_range: 0.2
+# mo_env_config.yaml
+objectives:
+  - economic_profit
+  - battery_health  
+  - grid_support
+  - energy_autonomy
+
+weights:
+  economic_profit: 0.4
+  battery_health: 0.3
+  grid_support: 0.2  
+  energy_autonomy: 0.1
+
+scalarization_method: "linear"  # linear, chebyshev, weighted_sum
 ```
 
-### Advanced RL-Zoo3 Features
+### Algorithm Configuration
 
-For more advanced RL-Zoo3 usage with Energy-Net, including:
-- Experimenting with different algorithms (SAC, TD3)
-- Automated hyperparameter optimization with Optuna
-- Comparative analysis and benchmarking
-- Scaling up experiments with parallel training
-- Advanced tracking and visualization
-- Sharing and publishing models
+```yaml
+# mosac_config.yaml
+algorithm: "MOSAC"
+network_type: "shared"  # shared, separate
+learning_rate: 3e-4
+gamma: 0.99
+buffer_size: 1000
+batch_size: 64
+train_freq: 1
+total_timesteps: 500000
+```
 
-Please refer to [READMEzoo.md](READMEzoo.md) for comprehensive examples and instructions.
+## Further Work
 
-## Troubleshooting
+### Planned Algorithms
 
-### Common Issues
+1. **Pareto Set Learning (PSL)**: Alternative hypernetwork approach with parameter fusion
+2. **Multi-Policy MORL**: Learning discrete set of Pareto-optimal policies  
+3. **Preference-Based Methods**: Interactive optimization with human feedback
 
-1. **Error: Module not found**
-   - Make sure you've installed the package with `pip install -e .`
-   - Verify PYTHONPATH includes the project directory
+### Current Limitations
 
-2. **Action scaling issues**
-   - If you see unusually small values in the logs, check that the action rescaling is working correctly
-   - Debug by adding logging statements to the unnormalization methods
+- **Consumption/Production Actions**: Current agents don't effectively utilize buy/sell actions
+- **Convergence Guarantees**: No formal convergence proof for Hyper-MORL
+- **Scalability**: Limited testing with higher-dimensional objective spaces
 
-3. **Unable to load policies**
-   - Verify that policy paths are correct in the training script
-   - Ensure the saved policies have compatible architecture with the current environment
+### Improvements
+
+- Integration with full ISO+PCS multi-agent environment
+- Dynamic preference elicitation during deployment
+- Robust evaluation metrics for MORL algorithms
+- Real-world validation with grid operators
+
+## References
+
+1. Shu, T., Shang, K., Gong, C., Nan, Y., and Ishibuchi, H. (2023). Learning Pareto Set for Multi-Objective Continuous Robot Control. Department of Computer Science and Engineering, Southern University of Science and Technology.
+
+2. Liu, E., Wu, Y.-C., Huang, X., Gao, C., Wang, R.-J., Xue, K., and Qian, C. (2025). Pareto Set Learning for Multi-Objective Reinforcement Learning. National Key Laboratory for Novel Software Technology, Nanjing University.
+
+3. Original EnergyNet Framework: [https://github.com/CLAIR-LAB-TECHNION/energy-net](https://github.com/CLAIR-LAB-TECHNION/energy-net)
+
+## License
+
+This project extends the EnergyNet framework and follows the same licensing terms.
