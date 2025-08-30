@@ -21,7 +21,7 @@ class MOPCSWrapper(gym.Wrapper):
     """
 
     def __init__(self, env, num_objectives=4, reward_weights=None,
-                 normalize_rewards=True, log_level=logging.INFO):
+                 normalize_rewards=True, log_level=logging.INFO, reward_stats:Optional[Dict[str, Dict[str, np.float64]]] = None):
         """
         Initialize multi-objective wrapper.
 
@@ -53,12 +53,15 @@ class MOPCSWrapper(gym.Wrapper):
         self.controller = None
 
         # Normalization parameters (learned from episodes)
-        self.reward_stats = {
-            'economic': {'min': -10, 'max': 10, 'mean': -8.1, 'std': 0.1},
-            'battery_health': {'min': -5, 'max': 5, 'mean': -0.057, 'std': 0.001},
-            'grid_support': {'min': -0.02, 'max': 0.02, 'mean': -0.057, 'std': 0.001},
-            'autonomy': {'min': -1.0, 'max': 1.0, 'mean': 0.5, 'std': 0.3}
-        }
+        if reward_stats is not None:
+            self.reward_stats = reward_stats
+        else:
+            self.reward_stats = {
+                'economic': {'min': -10, 'max': 10, 'mean': -8.1, 'std': 0.1},
+                'battery_health': {'min': -5, 'max': 5, 'mean': -0.057, 'std': 0.001},
+                'grid_support': {'min': -0.02, 'max': 0.02, 'mean': -0.057, 'std': 0.001},
+                'autonomy': {'min': -1.0, 'max': 1.0, 'mean': 0.5, 'std': 0.3}
+            }
 
         # Episode tracking
         self.episode_count = 0

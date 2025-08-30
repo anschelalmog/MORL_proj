@@ -41,7 +41,7 @@ def create_energynet_env(**kwargs):
 
     return DictToBoxWrapper(EnergyNetV0(**default_kwargs))
 
-def test_learn_with_mo_environment():
+def main():
     """Test learning with multi-objective environment."""
     base_env = create_energynet_env()
     mo_env = MOPCSWrapper(base_env, num_objectives=4)
@@ -68,3 +68,6 @@ def test_learn_with_mo_environment():
     # Check that model has learned something
     assert model._n_updates >= 0
     assert model.replay_buffer.size() > 0
+
+if __name__ == "__main__":
+    main()

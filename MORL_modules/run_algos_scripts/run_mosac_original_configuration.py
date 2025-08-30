@@ -30,22 +30,32 @@ def create_energynet_env(**kwargs):
     """Create EnergyNet environment."""
     from energy_net.envs.energy_net_v0 import EnergyNetV0
 
+
+
     default_kwargs = {
         'pricing_policy': PricingPolicy.QUADRATIC,
         'demand_pattern': DemandPattern.SINUSOIDAL,
         'cost_type': CostType.CONSTANT,
         'pcs_unit_config_path': "MORL_modules/configs/pcs_unit_config.yaml",
+
     }
 
     default_kwargs.update(kwargs)
 
     return DictToBoxWrapper(EnergyNetV0(**default_kwargs))
 
-def test_learn_with_mo_environment():
+def main():
     """Test learning with multi-objective environment."""
+    reward_stats = {
+        'economic': {'min': -50.0, 'max': 50.0, 'mean': 0.0, 'std': 10.0},
+        'battery_health': {'min': -2.0, 'max': 1.0, 'mean': 0.0, 'std': 0.5},
+        'grid_support': {'min': -1.0, 'max': 1.0, 'mean': 0.0, 'std': 0.3},
+        'autonomy': {'min': 0.0, 'max': 1.0, 'mean': 0.5, 'std': 0.3}
+    }
     base_env = create_energynet_env()
-    mo_env = MOPCSWrapper(base_env, num_objectives=4)
+    mo_env = MOPCSWrapper(base_env, num_objectives=4, reward_stats=reward_stats)       
     weights = np.array([1, 1, 1, 1])
+
     model = MOSAC(
         policy="MOSACPolicy",
         env=mo_env,
@@ -64,7 +74,10 @@ def test_learn_with_mo_environment():
     model.learn(total_timesteps=500000, log_interval=1, callback=
                 SaveOnBestTrainingRewardCallback(check_freq = 500, log_dir= "MORL_modules/logs/mosac_monitor/"))
 
-    plot_results_scalarized("MORL_modules/logs/mosac_monitor/", title="Learning Curve")
+    plot_results_scalarized("MORL_modules/logs/mosac_monitor_original_rewards/", title="Learning Curve")
     # Check that model has learned something
     assert model._n_updates >= 0
     assert model.replay_buffer.size() > 0
+
+if __name__ == "__main__":
+    main()
