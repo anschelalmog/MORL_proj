@@ -245,7 +245,6 @@ def create_energy_net_env(**kwargs):
         'demand_pattern': DemandPattern.SINUSOIDAL,
         'cost_type': CostType.CONSTANT,
         'pcs_unit_config_path':"MORL_modules/configs/pcs_unit_config.yaml",
-        "use_dispatch_action' :True,
     }
 
     default_kwargs.update(kwargs)
