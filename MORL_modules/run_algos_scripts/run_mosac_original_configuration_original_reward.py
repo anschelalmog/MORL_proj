@@ -47,24 +47,25 @@ def create_energynet_env(**kwargs):
 def main():
     """Test learning with multi-objective environment."""
     reward_stats = {
-        'economic': {'min': -50.0, 'max': 50.0, 'mean': 0.0, 'std': 10.0},
+        'economic': {'min': -50, 'max': 50, 'mean': 0.0, 'std': 10.0},
         'battery_health': {'min': -2.0, 'max': 1.0, 'mean': 0.0, 'std': 0.5},
         'grid_support': {'min': -1.0, 'max': 1.0, 'mean': 0.0, 'std': 0.3},
         'autonomy': {'min': 0.0, 'max': 1.0, 'mean': 0.5, 'std': 0.3}
     }
     base_env = create_energynet_env()
-    mo_env = MOPCSWrapper(base_env, num_objectives=4, reward_stats=reward_stats)       
-    weights = np.array([1, 1, 1, 1])
+    mo_env = MOPCSWrapper(base_env, num_objectives=4, reward_stats=reward_stats)
+    weights = np.array([1, 0, 0, 0])
 
     model = MOSAC(
         policy="MOSACPolicy",
         env=mo_env,
         num_objectives=4,
         learning_starts=10,
+        learning_rate=3e-5,
         buffer_size=1000,
         batch_size=64,
+        seed =256,
         verbose=1,
-        seed = 42,
         policy_kwargs={"share_features_across_objectives": True},
         train_freq=(1, "episode"),
         gradient_steps=1,
@@ -72,7 +73,7 @@ def main():
     )
 
     # Short learning run
-    model.learn(total_timesteps=500000, log_interval=1, callback=
+    model.learn(total_timesteps=5000000, log_interval=1, callback=
                 SaveOnBestTrainingRewardCallback(check_freq = 500, log_dir= "MORL_modules/logs/mosac_monitor/"))
 
     plot_results_scalarized("MORL_modules/logs/mosac_monitor/", title="Learning Curve",preference_weights= weights )
