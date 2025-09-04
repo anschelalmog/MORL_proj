@@ -7,6 +7,12 @@ import pytest
 import numpy as np
 from gymnasium import spaces
 
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(os.path.dirname(current_dir))
+sys.path.append(project_root)
+sys.path.append(os.path.join(project_root, 'MORL_modules'))
+
+
 from MORL_modules.wrappers.scalarized_mo_pcs_wrapper import ScalarizedMOPCSWrapper
 from MORL_modules.wrappers.mo_pcs_wrapper import MOPCSWrapper
 
@@ -21,11 +27,11 @@ def real_energynet_env():
     """Create a real EnergyNetV0 environment with minimal configuration"""
     try:
         env = EnergyNetV0(
-            controller_name="EnergyNetController",
-            controller_module="energy_net.controllers",
-            env_config_path='energy_net/configs/environment_config.yaml',
-            iso_config_path='energy_net/configs/iso_config.yaml',
-            pcs_unit_config_path='energy_net/configs/pcs_unit_config.yaml',
+            #controller_name="EnergyNetController",
+            #controller_module="energy_net.controllers",
+            env_config_path='configs/environment_config.yaml',
+            iso_config_path='configs/iso_config.yaml',
+            pcs_unit_config_path='configs/pcs_unit_config.yaml',
             cost_type=CostType.CONSTANT,
             pricing_policy=PricingPolicy.QUADRATIC,
             demand_pattern=DemandPattern.SINUSOIDAL,

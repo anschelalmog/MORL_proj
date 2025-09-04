@@ -32,9 +32,9 @@ def energynet_env():
         env = EnergyNetV0(
             controller_name="EnergyNetController",
             controller_module="energy_net.controllers",
-            env_config_path='energy_net/configs/environment_config.yaml',
-            iso_config_path='energy_net/configs/iso_config.yaml',
-            pcs_unit_config_path='energy_net/configs/pcs_unit_config.yaml',
+            env_config_path='configs/environment_config.yaml',
+            iso_config_path='configs/iso_config.yaml',
+            pcs_unit_config_path='configs/pcs_unit_config.yaml',
             cost_type=CostType.CONSTANT,
             pricing_policy=PricingPolicy.QUADRATIC,
             demand_pattern=DemandPattern.SINUSOIDAL,

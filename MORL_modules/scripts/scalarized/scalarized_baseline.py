@@ -18,9 +18,17 @@ from stable_baselines3 import PPO, SAC, A2C, TD3
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.callbacks import EvalCallback
 
-from MORL_modules.scripts.scalarized.scalarized_trainer import (create_environment,
+# -----------------------------------------------------------------------------
+# Path setup
+# -----------------------------------------------------------------------------
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(os.path.dirname(current_dir))
+sys.path.append(project_root)
+sys.path.append(os.path.join(project_root, 'MORL_modules'))
+
+from scalarized_trainer import (create_environment,
     CONFIGURATIONS, DEFAULT_PARAMS, load_training_data)
-from MORL_modules.wrappers.dict_to_box_wrapper import DictToBoxWrapper
+from wrappers.dict_to_box_wrapper import DictToBoxWrapper
 
 BASELINE_ALGORITHMS = {
     'ppo': {

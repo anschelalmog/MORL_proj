@@ -31,9 +31,23 @@ class ScalarizedMOPCSWrapper(gym.Wrapper):
             normalize_weights: Whether to normalize weights to sum to 1
             **mo_wrapper_kwargs: Additional arguments passed to MOPCSWrapper
         """
+
+        mo_wrapper_default_kwargs = {
+
+            'reward_stats':  {
+                                "economic":       {"min": -50.0, "max": 50.0, "std": 10.0},
+                                "battery_health": {"min": -2.0,  "max": 1.0,  "std": 0.5},
+                                "grid_support":   {"min": -1.0,  "max": 1.0,  "std": 0.3},
+                                "autonomy":       {"min": 0.0,   "max": 1.0,  "std": 0.3},
+                              }
+
+        }
+
+        mo_wrapper_default_kwargs.update(mo_wrapper_kwargs)
+
         # Wrap with MOPCSWrapper if not already wrapped
         if not isinstance(env, MOPCSWrapper):
-            env = MOPCSWrapper(env, **mo_wrapper_kwargs)
+            env = MOPCSWrapper(env, **mo_wrapper_default_kwargs)
 
         super().__init__(env)
 

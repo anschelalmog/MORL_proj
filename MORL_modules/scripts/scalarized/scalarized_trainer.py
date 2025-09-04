@@ -28,11 +28,17 @@ from energy_net.envs.energy_net_v0 import EnergyNetV0
 from energy_net.market.pricing.cost_types import CostType
 from energy_net.market.pricing.pricing_policy import PricingPolicy
 from energy_net.dynamics.consumption_dynamics.demand_patterns import DemandPattern
-
-from MORL_modules.agents.mosac import MOSAC, MOSACPolicy
-from MORL_modules.wrappers.scalarized_mo_pcs_wrapper import ScalarizedMOPCSWrapper
-from MORL_modules.wrappers.mo_pcs_wrapper import MOPCSWrapper
-from MORL_modules.wrappers.dict_to_box_wrapper import DictToBoxWrapper
+# -----------------------------------------------------------------------------
+# Path setup
+# -----------------------------------------------------------------------------
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(os.path.dirname(current_dir))
+sys.path.append(project_root)
+sys.path.append(os.path.join(project_root, 'MORL_modules'))
+from agents.mosac import MOSAC, MOSACPolicy
+from wrappers.scalarized_mo_pcs_wrapper import ScalarizedMOPCSWrapper
+from wrappers.mo_pcs_wrapper import MOPCSWrapper
+from wrappers.dict_to_box_wrapper import DictToBoxWrapper
 # ============================================================================
 # CONFIGURATION SETTINGS
 # ============================================================================
@@ -70,11 +76,11 @@ DEFAULT_PARAMS = {
 
 # Environment parameters
 ENV_PARAMS = {
-    'controller_name': 'EnergyNetController',
-    'controller_module': 'energy_net.controllers',
-    'env_config_path': 'energy_net/configs/environment_config.yaml',
-    'iso_config_path': 'energy_net/configs/iso_config.yaml',
-    'pcs_unit_config_path': 'energy_net/configs/pcs_unit_config.yaml',
+    #'controller_name': 'EnergyNetController',
+    #'controller_module': 'energy_net.controllers',
+    'env_config_path': 'configs/environment_config.yaml',
+    'iso_config_path': 'configs/iso_config.yaml',
+    'pcs_unit_config_path': 'configs/pcs_unit_config.yaml',
     'cost_type': CostType.CONSTANT,
     'pricing_policy': PricingPolicy.QUADRATIC,
     'demand_pattern': DemandPattern.SINUSOIDAL
@@ -94,8 +100,8 @@ def create_environment(weights: List[float], seed: int = 42) -> ScalarizedMOPCSW
 
     # Create base environment
     base_env = EnergyNetV0(
-        controller_name=ENV_PARAMS['controller_name'],
-        controller_module=ENV_PARAMS['controller_module'],
+        #controller_name=ENV_PARAMS['controller_name'],
+        #controller_module=ENV_PARAMS['controller_module'],
         env_config_path=ENV_PARAMS['env_config_path'],
         iso_config_path=ENV_PARAMS['iso_config_path'],
         pcs_unit_config_path=ENV_PARAMS['pcs_unit_config_path'],

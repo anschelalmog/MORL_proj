@@ -6,3 +6,4 @@ future==1.0.0
 consoleprinter==95
 scikit-learn==1.2.2
 numpy==1.25.2
+seaborn==0.13.2

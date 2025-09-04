@@ -30,10 +30,10 @@ from stable_baselines3 import PPO, SAC, A2C, TD3
 from stable_baselines3.common.monitor import Monitor
 
 # Import from the existing modules
-from MORL_modules.scripts.scalarized.scalarized_trainer import (
+from scalarized_trainer import (
     create_environment, create_agent, DEFAULT_PARAMS, evaluate_model, load_training_data
 )
-from MORL_modules.scripts.scalarized.scalarized_baseline import (
+from scalarized_baseline import (
     BASELINE_ALGORITHMS, create_baseline_agent, evaluate_baseline_model
 )
 
