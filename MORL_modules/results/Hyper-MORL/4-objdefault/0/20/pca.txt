@@ -1,0 +1,46 @@
+PCA Components Analysis
+==================================================
+
+Data shape: (4059, 4)
+Number of components: 4
+Total explained variance: 1.0000
+
+Principal Components (loadings):
+------------------------------
+PC1 (explains 0.6765 variance):
+  Feature 1: -0.549819
+  Feature 2: 0.168967
+  Feature 3: 0.818016
+  Feature 4: -0.000000
+
+PC2 (explains 0.2925 variance):
+  Feature 1: 0.749781
+  Feature 2: -0.331790
+  Feature 3: 0.572489
+  Feature 4: 0.000000
+
+PC3 (explains 0.0310 variance):
+  Feature 1: 0.368142
+  Feature 2: 0.928098
+  Feature 3: 0.055736
+  Feature 4: -0.000000
+
+PC4 (explains 0.0000 variance):
+  Feature 1: 0.000000
+  Feature 2: 0.000000
+  Feature 3: 0.000000
+  Feature 4: 1.000000
+
+Explained Variance Ratios:
+-------------------------
+PC1: 0.676504
+PC2: 0.292505
+PC3: 0.030991
+PC4: 0.000000
+
+Cumulative Explained Variance:
+------------------------------
+PC1-PC1: 0.676504
+PC1-PC2: 0.969009
+PC1-PC3: 1.000000
+PC1-PC4: 1.000000

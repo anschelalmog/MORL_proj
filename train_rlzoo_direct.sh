@@ -99,7 +99,7 @@ ISO_ENV_KWARGS=("${BASE_ENV_KWARGS[@]}")
 python -m rl_zoo3.train \
   --algo ppo \
   --env ISO-RLZoo-v0 \
-  --gym-packages energy_net.env.register_envs \
+  --gym-packages energy_net.envs.register_envs \
   --eval-freq 500 \
   --eval-episodes 10 \
   --save-freq 500 \
@@ -133,7 +133,7 @@ for ((ITERATION=1; ITERATION<=$ITERATIONS; ITERATION++)); do
   python -m rl_zoo3.train \
     --algo ppo \
     --env PCS-RLZoo-v0 \
-    --gym-packages energy_net.env.register_envs \
+    --gym-packages energy_net.envs.register_envs \
     --eval-freq 500 \
     --eval-episodes 10 \
     --save-freq 500 \
@@ -168,7 +168,7 @@ for ((ITERATION=1; ITERATION<=$ITERATIONS; ITERATION++)); do
   python -m rl_zoo3.train \
     --algo ppo \
     --env ISO-RLZoo-v0 \
-    --gym-packages energy_net.env.register_envs \
+    --gym-packages energy_net.envs.register_envs \
     --eval-freq 500 \
     --eval-episodes 10 \
     --save-freq 500 \

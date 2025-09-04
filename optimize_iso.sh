@@ -22,7 +22,7 @@ echo "Starting ISO agent optimization..."
 python -m rl_zoo3.train \
   --algo ppo \
   --env ISO-RLZoo-v0 \
-  --gym-packages energy_net.env.register_envs \
+  --gym-packages energy_net.envs.register_envs \
   --n-timesteps $N_TIMESTEPS \
   -optimize \
   --n-trials $N_TRIALS \

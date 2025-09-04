@@ -1,0 +1,9 @@
+gym==0.26.2
+opencv_python==4.11.0.86
+hvwfg-1.0.2==1.0.2
+arguments==76
+future==1.0.0
+consoleprinter==95
+scikit-learn==1.2.2
+numpy==1.25.2
+seaborn==0.13.2

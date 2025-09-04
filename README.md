@@ -107,43 +107,35 @@ pip install -e ../energy-net
 
 ```bash
 # Train MOSAC with shared critics
-python train_mosac.py \
-    --algorithm mosac_shared \
-    --timesteps 500000 \
+python MORL_modules/run_algos/train_mosac.py \
+    --total-timesteps 500000\
     --learning-rate 3e-4 \
-    --objectives economic,battery,grid,autonomy
+    --calc-mse-before-scalarization\
+    --share-features
+
+or run 
+python MORL_modules/run_algos_scripts/run_mosac_4_objectives.py   
 
 # Train MOSAC with separate critics  
-python train_mosac.py \
-    --algorithm mosac_separate \
-    --timesteps 500000 \
-    --learning-rate 3e-4
+python  MORL_modules/run_algos/train_mosac.py \
+    --total-timesteps 500000\
+    --learning-rate 3e-4 \
+    --calc-mse-before-scalarization\
+    --no-share-features
 ```
+other python script can be found in MORL_modules/run_algos/scripts 
+
 
 ### Training Hyper-MORL
 
 ```bash
 # Train Hypernetwork-based MORL
-python train_hypermorl.py \
-    --timesteps 30000000 \
-    --learning-rate 5e-4 \
-    --num-processes 4 \
-    --warmup-steps 2048
+python MORL_modules/run_algos/run_ppo_psl.py
 ```
 
 ### Evaluation and Visualization
 
 ```bash
-# Evaluate trained models
-python evaluate_morl.py \
-    --model-path models/mosac_shared.zip \
-    --algorithm mosac \
-    --episodes 100
-
-# Generate Pareto front plots
-python plot_pareto_front.py \
-    --results-dir results/ \
-    --output-dir plots/
 ```
 
 ## Results
