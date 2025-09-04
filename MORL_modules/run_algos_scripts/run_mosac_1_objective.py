@@ -41,8 +41,7 @@ TRAIN_SCRIPT = os.path.join(project_root, "MORL_modules/run_algos/train_mosac.py
 
 def main():
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    #log_dir = f"MORL_modules/logs/mosac_monitor_run_{timestamp}"
-    log_dir = "MORL_modules/logs/mosac_monitor"
+    log_dir = f"MORL_modules/logs/mosac_cost_reward_monitor_run_{timestamp}"
     cmd = [
         sys.executable, TRAIN_SCRIPT,
         "--total-timesteps", "500000",
@@ -59,7 +58,7 @@ def main():
         "--learning-rate", "3e-5",
         "--seed", "256",
         "--log-dir", log_dir,
-        "--plot-title", f"MOSAC Learning Curve ({timestamp})",
+        "--plot-title", f"MOSAC Learning Curve original reward ({timestamp})",
         "--save-check-freq", "500",
         "--calc-mse-before-scalarization",
         "--share-features"

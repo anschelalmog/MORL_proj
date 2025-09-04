@@ -41,7 +41,8 @@ TRAIN_SCRIPT = os.path.join(project_root, "MORL_modules/run_algos/train_mosac.py
 
 def main():
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_dir = f"MORL_modules/logs/mosac_monitor_hyper_morl_normalization_run_{timestamp}"
+    log_dir = f"MORL_modules/logs/mosac_monitor_run_{timestamp}"
+    #log_dir = "MORL_modules/logs/mosac_monitor"
     cmd = [
         sys.executable, TRAIN_SCRIPT,
         "--total-timesteps", "500000",
@@ -58,10 +59,11 @@ def main():
         "--learning-rate", "3e-4",
         "--seed", "none",
         "--log-dir", log_dir,
-        "--plot-title", f"MOSAC Learning Curve 4 objectives {timestamp}",
+        "--plot-title", f"MOSAC Learning Curve Hyper-Morl normalization",
         "--save-check-freq", "500",
         "--calc-mse-before-scalarization",
-        "--share-features"
+        "--share-features",
+        "--reward_stats", "hyper-morl"
     ]
 
     print("Running command:\n", " ".join(cmd), "\n")

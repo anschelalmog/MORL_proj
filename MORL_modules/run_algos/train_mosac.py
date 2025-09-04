@@ -14,7 +14,7 @@ import sys
 import os
 from typing import Dict, Optional
 import numpy as np
-
+import shlex
 # -----------------------------------------------------------------------------
 # Path setup
 # -----------------------------------------------------------------------------
@@ -109,6 +109,36 @@ def parse_seed(v: str) -> Optional[int]:
 def ensure_dir(path: str):
     os.makedirs(path, exist_ok=True)
 
+def save_args_file(args: argparse.Namespace,
+                   reward_stats: Dict[str, Dict[str, float]],
+                   file_path: str):
+    """
+    Save command line, resolved arguments, reward stats, and override info to args.txt
+    """
+    try:
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write("# ================== MOSAC Training Arguments ==================\n")
+            f.write("Command Line:\n")
+            f.write("python " + os.path.basename(__file__) + " " +
+                    " ".join(shlex.quote(a) for a in sys.argv[1:]) + "\n\n")
+
+
+            f.write("Resolved Arguments:\n")
+            # Convert enums to their names for readability
+            for k, v in sorted(vars(args).items()):
+                if isinstance(v, (PricingPolicy, DemandPattern, CostType)):
+                    v_repr = v.name
+                else:
+                    v_repr = v
+                f.write(f"  {k}: {v_repr}\n")
+            f.write("\nReward Stats (effective):\n")
+            for name, rs in reward_stats.items():
+                f.write(f"  {name}:\n")
+                for key in ["min", "max", "mean", "std"]:
+                    f.write(f"    {key}: {rs[key]}\n")
+
+    except Exception as e:
+        print(f"WARNING: Failed to write args file at {file_path}: {e}")
 
 
 # -----------------------------------------------------------------------------
@@ -329,6 +359,11 @@ def main(args: argparse.Namespace):
 
     ensure_dir(args.log_dir)
 
+    # Save args + reward stats BEFORE training for reproducibility
+    args_file_path = os.path.join(args.log_dir, "args.txt")
+    save_args_file(args, reward_stats,  args_file_path)
+    print(f"Arguments saved to: {args_file_path}")
+
     policy_kwargs = {
         "share_features_across_objectives": args.share_features
     }
@@ -369,7 +404,8 @@ def main(args: argparse.Namespace):
         gradient_steps=args.gradient_steps,
         preference_weights=args.weights,
         calculate_mse_before_scalarization=args.calc_mse_before_scalarization,
-        learning_rate=args.learning_rate
+        learning_rate=args.learning_rate,
+        log_folder= args.log_dir
     )
     # Only include seed if not None (in case MOSAC behaves differently when omitted)
     if args.seed is not None:

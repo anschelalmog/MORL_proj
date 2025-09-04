@@ -112,6 +112,7 @@ def create_environment(weights: List[float], seed: int = 42) -> ScalarizedMOPCSW
         weights=weights,
         normalize_weights=True,
         log_level='WARNING'
+
     )
 
     return scalarized_env

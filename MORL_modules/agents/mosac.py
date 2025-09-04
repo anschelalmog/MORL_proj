@@ -36,7 +36,7 @@ from stable_baselines3.common.vec_env import (
     DummyVecEnv, VecEnv, VecNormalize,
     VecTransposeImage, is_vecenv_wrapped, unwrap_vec_normalize)
 
-
+from stable_baselines3.common.base_class import maybe_make_env
 
 class MOContinuousCritic(ContinuousCritic):
     """
@@ -292,6 +292,7 @@ class MOSAC(SAC):
         num_objectives=4,
         calculate_mse_before_scalarization: Optional[bool]=True,
         preference_weights=None,
+        log_folder: Optional[str] = None,
         ):
         if hasattr(env, "num_objectives"):
             assert env.num_objectives == num_objectives
@@ -318,6 +319,9 @@ class MOSAC(SAC):
         replay_buffer_kwargs['num_objectives'] = self.num_objectives
         self.calculate_mse_before_scalarization = calculate_mse_before_scalarization
 
+        if env is not None:
+            env = maybe_make_env(env, verbose)
+            env = self._wrap_env(env, verbose, monitor_wrapper = True, log_folder = log_folder )
         super().__init__(
             policy=policy,
             env=env,
@@ -363,7 +367,7 @@ class MOSAC(SAC):
         self.preference_weights_tensor = th.FloatTensor(self.preference_weights).to(self.device)
 
     @staticmethod
-    def _wrap_env(env: GymEnv, verbose: int = 0, monitor_wrapper: bool = True) -> VecEnv:
+    def _wrap_env(env: GymEnv, verbose: int = 0, monitor_wrapper: bool = True, log_folder : str = None) -> VecEnv:
         """ "
         Wrap environment with the appropriate wrappers if needed.
         For instance, to have a vectorized environment
@@ -381,7 +385,7 @@ class MOSAC(SAC):
             if not is_wrapped(env, MOMonitor) and monitor_wrapper:
                 if verbose >= 1:
                     print("Wrapping the env with a `Monitor` wrapper")
-                env = MOMonitor(env, num_objectives = env.num_objectives)
+                env = MOMonitor(env, num_objectives = env.num_objectives, filename = log_folder )
             if verbose >= 1:
                 print("Wrapping the env in a DummyVecEnv.")
             env = MODummyVecEnv([lambda: env])  # type: ignore[list-item, return-value]
