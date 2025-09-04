@@ -62,8 +62,7 @@ def main():
         "--plot-title", f"MOSAC Learning Curve ({timestamp})",
         "--save-check-freq", "500",
         "--calc-mse-before-scalarization",
-        "--share-features",
-        "--reward_stats", "hyper-morl"
+        "--share-features"
     ]
 
     print("Running command:\n", " ".join(cmd), "\n")

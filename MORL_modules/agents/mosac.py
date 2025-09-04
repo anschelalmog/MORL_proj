@@ -290,6 +290,7 @@ class MOSAC(SAC):
         _init_setup_model: bool = True,
         # Multi-objective specific parameters
         num_objectives=4,
+        calculate_mse_before_scalarization: Optional[bool]=True,
         preference_weights=None,
         ):
         if hasattr(env, "num_objectives"):
@@ -315,7 +316,7 @@ class MOSAC(SAC):
         # Ensure replay buffer kwargs contain num_objectives
         replay_buffer_kwargs = {} if replay_buffer_kwargs is None else replay_buffer_kwargs.copy()
         replay_buffer_kwargs['num_objectives'] = self.num_objectives
-
+        self.calculate_mse_before_scalarization = calculate_mse_before_scalarization
 
         super().__init__(
             policy=policy,
@@ -493,10 +494,23 @@ class MOSAC(SAC):
             current_q_values = self.critic(replay_data.observations, replay_data.actions)
 
             # Compute critic loss for each objective, use preference weights
-            critic_loss = 0.5 * sum( sum(F.mse_loss(obj_current_q,
-                                                    target_q_values[obj_idx])*self.preference_weights[obj_idx] for
-                                         obj_idx, obj_current_q in enumerate(current_q))
-                                    for critic_idx , current_q in enumerate(current_q_values))
+            if self.calculate_mse_before_scalarization == True:
+                critic_loss = 0.5 * sum( sum(F.mse_loss(obj_current_q,
+                                                        target_q_values[obj_idx])*self.preference_weights[obj_idx] for
+                                             obj_idx, obj_current_q in enumerate(current_q))
+                                        for critic_idx , current_q in enumerate(current_q_values))
+            else:
+                # Scalarize current Q-values using preference weights
+
+                scalarized_current_q_values = [sum(self.preference_weights[obj_idx]*current_q[obj_idx] for obj_idx in range(self.num_objectives))
+                    for  current_q in current_q_values]
+
+                # Scalarize target Q-values using preference weights
+                scalarized_target_q_value = sum(w * tq for w, tq in zip(self.preference_weights, target_q_values))
+                # Compute MSE loss on scalarized Q-values
+                critic_loss = 0.5 * sum(F.mse_loss(scalarized_current_q, scalarized_target_q_value)
+                                        for scalarized_current_q in scalarized_current_q_values)
+
             critic_losses.append(critic_loss.item())
 
             # Optimize the critic

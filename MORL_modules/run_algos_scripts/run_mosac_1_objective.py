@@ -46,7 +46,7 @@ def main():
     cmd = [
         sys.executable, TRAIN_SCRIPT,
         "--total-timesteps", "500000",
-        "--weights", "1,1,1,1",
+        "--weights", "1,0,0,0",
         "--pricing-policy", "QUADRATIC",
         "--demand-pattern", "SINUSOIDAL",
         "--cost-type", "CONSTANT",
@@ -56,14 +56,13 @@ def main():
         "--gradient-steps", "1",
         "--train-freq-n", "1",
         "--train-freq-unit", "episode",
-        "--learning-rate", "3e-4",
-        "--seed", "none",
+        "--learning-rate", "3e-5",
+        "--seed", "256",
         "--log-dir", log_dir,
         "--plot-title", f"MOSAC Learning Curve ({timestamp})",
         "--save-check-freq", "500",
         "--calc-mse-before-scalarization",
-        "--share-features",
-        "--reward_stats", "hyper-morl"
+        "--share-features"
     ]
 
     print("Running command:\n", " ".join(cmd), "\n")
