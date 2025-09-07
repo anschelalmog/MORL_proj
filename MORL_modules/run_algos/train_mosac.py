@@ -389,7 +389,6 @@ def main(args: argparse.Namespace):
     print("Seed                  :", args.seed if args.seed is not None else "None (not setting)")
     print("Dry run               :", args.dry_run)
     print("==============================\n")
-
     mosac_kwargs = dict(
         policy="MOSACPolicy",
         env=mo_env,

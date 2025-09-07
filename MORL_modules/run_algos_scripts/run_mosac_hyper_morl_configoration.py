@@ -41,7 +41,7 @@ TRAIN_SCRIPT = os.path.join(project_root, "MORL_modules/run_algos/train_mosac.py
 
 def main():
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_dir = f"MORL_modules/logs/mosac_monitor_run_{timestamp}"
+    log_dir = f"MORL_modules/logs/mosac_monitor_Hyper-Morl_normalization_run_{timestamp}"
     #log_dir = "MORL_modules/logs/mosac_monitor"
     cmd = [
         sys.executable, TRAIN_SCRIPT,
